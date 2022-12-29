@@ -29,7 +29,7 @@ import time
 import os
 import argparse
 
-from nabu_data import NabuSegment, NabuPak #, NabuTimeSegment
+from nabu_data import NabuSegment, NabuPak
 
 def send_ack():
     sendBytes(bytes([0x10, 0x06]))
@@ -235,7 +235,7 @@ paks = {}    # Creates library variable to store loaded paks in memory
 MAX_READ=65535
 DEFAULT_BAUDRATE=111863
 DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
-DEFAULT_PAK_DIRECTORY="./cycle2pak/"
+DEFAULT_PAK_DIRECTORY="./paks/"
 
 # channelCode = None
 channelCode = '0000'
