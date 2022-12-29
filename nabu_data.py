@@ -112,7 +112,7 @@ class NabuPak:
         cloudpak = requests.get(location + npakname, headers={"User-Agent": "NABU"})
         if cloudpak.status_code == 404:
             print("#### 404 ERROR! #### - Sending out the penguins.")
-            cloudpak = requests.get(location + "64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak")
+            cloudpak = requests.get(location + "64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak", headers={"User-Agent": "NABU"})
         encryptedpak = cloudpak.content
         cipher = DES.new(DESKEY, DES.MODE_CBC, iv=DESIV)
         pakdata = cipher.decrypt(encryptedpak)
