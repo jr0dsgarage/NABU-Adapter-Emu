@@ -42,6 +42,11 @@
 # 
 
 import datetime
+import hashlib
+import requests
+
+from Crypto.Cipher import DES
+from Crypto.Util import Padding
 
 class NabuPak:
     def __init__(self):
@@ -90,8 +95,28 @@ class NabuPak:
     def ingest_from_file(self, pakfile):
         f = open(pakfile, "rb")
         contents = bytes(f.read())
-        print(" * Ingesting Segments from {}:".format(pakfile) + contents.hex(' '))
+#        print(" * Ingesting Segments from {}:".format(pakfile) + contents.hex(' '))
+        print("* Reading segments from : " + pakfile + "   " + str(len(contents)) + " bytes")
         self.parse_pak(contents)
+        
+    def get_cloud_pak(self, location, paknum):
+        DESKEY=bytes((0x6e, 0x58, 0x61, 0x32, 0x62, 0x79, 0x75, 0x7a))
+        DESIV=bytes((0x0c, 0x15, 0x2b, 0x11, 0x39, 0x23, 0x43, 0x1b))
+        segnum = "{0:06X}".format(paknum)
+        hashstr = hashlib.md5((segnum + "nabu").encode('utf-8')).hexdigest().upper()
+        hashstr = "-".join([hashstr[i:i+2] for i in range(0, len(hashstr), 2)])
+        npakname = hashstr + ".npak"
+        print(npakname)
+        cloudpak = requests.get(location + npakname)
+        if cloudpak.status_code == 404:
+            print("#### 404 ERROR! #### - Sending out the penguins.")
+            cloudpak = requests.get(location + "64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak")
+        encryptedpak = cloudpak.content
+        cipher = DES.new(DESKEY, DES.MODE_CBC, iv=DESIV)
+        pakdata = cipher.decrypt(encryptedpak)
+        pakdata = Padding.unpad(pakdata, 8)
+        print(segnum + ": " + str(len(pakdata)) + " bytes")
+        self.parse_pak(pakdata)
         
 class NabuSegment:
     def __init__(self):

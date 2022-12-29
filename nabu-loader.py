@@ -18,11 +18,12 @@
 #   Pak files are only loaded from disk once as needed, then stored in library variable
 #   Output messages trimmed and condensed
 #   Pak directory selectable from command line option, but defaults available for all settings
+#   Now supports loading encrypted files from Internet cloud source, such as https://cloud.nabu.ca/cycle1/
 
 # This works with a directory of pak files, specified at command line or by default variable below
 # Will work with unmodified (but decrypted) files from both cycle 1 and 2 of the original NABU network
 # Filename 000001.pak is menu and is loaded to begin, the rest are uppercase hex filenames with .pak extension
-# TODO: implement pak file decryption and Internet loading from nabu cloud
+# Can also be used with Internet cloud source of encrypted files, set location with switch or variable
 
 import serial
 import time
@@ -219,13 +220,20 @@ def recvBytes(length = None):
 # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
 
 def loadpak(filename):
-    file = filename.upper()
-    print("* Loading NABU Segments into memory")
-    pak1 = NabuPak()
-    if os.path.exists( args.paksource + file + ".pak") == False:
-        print("Pak file does not exist... here, have some penguins instead.")
-        file = "000120"
-    pak1.ingest_from_file( args.paksource + file + ".pak")
+    if args.internetlocation is not None:
+        pak1 = NabuPak()
+        paknum = int(filename,16)
+        print(paknum)
+        print("### Loading NABU segments into memory from "+args.internetlocation)
+        pak1.get_cloud_pak(args.internetlocation, paknum)
+    else:   
+        file = filename.upper()
+        print("* Loading NABU Segments into memory from disk")
+        pak1 = NabuPak()
+        if os.path.exists( args.paksource + file + ".pak") == False:
+            print("Pak file does not exist... here, have some penguins instead.")
+            file = "000120"
+        pak1.ingest_from_file( args.paksource + file + ".pak")
     paks[filename] = pak1
 
 ######  Begin main code here
@@ -236,6 +244,8 @@ MAX_READ=65535
 DEFAULT_BAUDRATE=111863
 DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
 DEFAULT_PAK_DIRECTORY="./paks/"
+CLOUD_LOCATION="http://cloud.nabu.ca/cycle1/"
+#CLOUD_LOCATION=None
 
 # channelCode = None
 channelCode = '0000'
@@ -256,6 +266,10 @@ default=DEFAULT_BAUDRATE)
 parser.add_argument("-p", "--paksource",
 help="Set location of the pak files (default: {} )".format(DEFAULT_PAK_DIRECTORY),
 default=DEFAULT_PAK_DIRECTORY) 
+# Optional pak Internet location selection
+parser.add_argument("-i", "--internetlocation",
+help="Set Internet location to source pak files, if not specified, load from disk",
+default=CLOUD_LOCATION)
 		
 args = parser.parse_args()
 
