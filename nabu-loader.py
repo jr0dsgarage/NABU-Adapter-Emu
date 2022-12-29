@@ -18,7 +18,7 @@
 #   Pak files are only loaded from disk once as needed, then stored in library variable
 #   Output messages trimmed and condensed
 #   Pak directory selectable from command line option, but defaults available for all settings
-#   Now supports loading encrypted files from Internet cloud source, such as http://cloud.nabu.ca/cycle1/
+#   Now supports loading encrypted files from Internet cloud source, such as https://cloud.nabu.ca/cycle1/
 
 # This works with a directory of pak files, specified at command line or by default variable below
 # Will work with unmodified (but decrypted) files from both cycle 1 and 2 of the original NABU network

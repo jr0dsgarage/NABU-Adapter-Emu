@@ -45,6 +45,8 @@ import datetime
 import hashlib
 import requests
 
+from io import BytesIO
+
 from Crypto.Cipher import DES
 from Crypto.Util import Padding
 
@@ -107,7 +109,7 @@ class NabuPak:
         hashstr = "-".join([hashstr[i:i+2] for i in range(0, len(hashstr), 2)])
         npakname = hashstr + ".npak"
         print(npakname)
-        cloudpak = requests.get(location + npakname)
+        cloudpak = requests.get(location + npakname, headers={"User-Agent": "NABU"})
         if cloudpak.status_code == 404:
             print("#### 404 ERROR! #### - Sending out the penguins.")
             cloudpak = requests.get(location + "64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak")
