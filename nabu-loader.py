@@ -90,7 +90,7 @@ def handle_get_status(data):
         # Ask NPC to set channel code
         sendBytes(bytes([0x9f, 0x10, 0xe1]))
     else:
-        print("* Channel code is set to " + channelCode)
+        print("* Channel code is set to {}".format(channelCode))
         # Report that channel code is already set
         sendBytes(bytes([0x1f, 0x10, 0xe1]))
 
@@ -107,7 +107,7 @@ def handle_download_segment(data):
     segmentNumber = recvBytesExactLen(1)[0]
     pakNumber = bytes(reversed(recvBytesExactLen(3)))
     pakId = str(pakNumber.hex())
-    print("* Requested Pak ID: %0 * Requested Segment Number: %1".format(pakId,segmentNumber))
+    print("* Requested Pak ID: {} * Requested Segment Number: {}".format(pakId,segmentNumber))
 
     if pakId == "7fffff":
         print("Time packet requested")
@@ -217,14 +217,14 @@ def sendBytes(data):
     end = len(data)
 
     while index + chunk_size < end:
-        ser.write(data[index:index+chunk_size])
+        serial_connection.write(data[index:index+chunk_size])
 #        print("NA-->NPC:  " + data[index:index+chunk_size].hex(' '))
         index += chunk_size
         time.sleep(delay_secs)
 
     if index != end:
         #        print("NA-->NPC:  " + data[index:end].hex(' '))
-        ser.write(data[index:end])
+        serial_connection.write(data[index:end])
 
 
 def recvBytesExactLen(length=None):
@@ -242,9 +242,9 @@ def recvBytesExactLen(length=None):
 
 def recvBytes(length=None):
     if (length is None):
-        data = ser.read(MAX_READ)
+        data = serial_connection.read(MAX_READ)
     else:
-        data = ser.read(length)
+        data = serial_connection.read(length)
     if (len(data) > 0):
         print("NPC-->NA:   " + data.hex(' '))
     return data
@@ -263,45 +263,40 @@ def loadpak(filename):
         file = filename.upper()
         print("* Loading NABU Segments into memory from disk")
         pak1 = NabuPak()
-        if os.path.exists(args.paksource + file + ".npak") == False:
+        if os.path.exists(args.paksource + file + ".pak") == False:
             print("Pak file does not exist... here, have some penguins instead.")
-            #file = "000120"
         pak1.ingest_from_file(args.paksource + file + ".pak")
     paks[filename] = pak1
 
+def get_args(parser):
+    parser.add_argument("-t", "--ttyname",
+                        help="Set serial device (e.g. /dev/ttyUSB0 or COM3)",
+                        default=DEFAULT_SERIAL_PORT)
+    parser.add_argument("-b", "--baudrate",
+                        type=int,
+                        help="Set serial baud rate (default: {} BPS)".format(DEFAULT_BAUDRATE),
+                        default=DEFAULT_BAUDRATE)
+    parser.add_argument("-p", "--paksource",
+                        help="Set location of the pak files (default: {} )".format(DEFAULT_PAK_DIRECTORY),
+                        default=DEFAULT_PAK_DIRECTORY)
+    parser.add_argument("-i", "--internetlocation",
+                        help="Set Internet location to source pak files, if not specified, load from disk",
+                        default=CLOUD_LOCATION)
+    return parser.parse_args()
 
 
 # Begin main code here
 if __name__ == "__main__":
     global paks
     paks = {}    # Creates library variable to store loaded paks in memory
-
     # channelCode = None
     channelCode = '0000'
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-t", "--ttyname",
-                        help="Set serial device (e.g. /dev/ttyUSB0)",
-                        default=DEFAULT_SERIAL_PORT)
-    parser.add_argument("-b", "--baudrate",
-                        type=int,
-                        help="Set serial baud rate (default: {} BPS)".format(
-                            DEFAULT_BAUDRATE),
-                        default=DEFAULT_BAUDRATE)
-    parser.add_argument("-p", "--paksource",
-                        help="Set location of the pak files (default: {} )".format(
-                            DEFAULT_PAK_DIRECTORY),
-                        default=DEFAULT_PAK_DIRECTORY)
-    parser.add_argument("-i", "--internetlocation",
-                        help="Set Internet location to source pak files, if not specified, load from disk",
-                        default=CLOUD_LOCATION)
-
-    args = parser.parse_args()
-
+    args = get_args(argparse.ArgumentParser())
     loadpak("000001")
-
-    serial_connection = serial.Serial(port=args.ttyname, baudrate=args.baudrate,
-                        timeout=0.5, stopbits=serial.STOPBITS_TWO)
+    serial_connection = serial.Serial(port = args.ttyname,
+                                     baudrate = args.baudrate,
+                                     timeout = 0.5,
+                                     stopbits = serial.STOPBITS_TWO)
 
     while True:
         data = recvBytes()
