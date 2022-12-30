@@ -116,7 +116,7 @@ def handle_download_segment(data):
     else:
         sendBytes(bytes([0xe4, 0x91]))
         response = recvBytes(2)
-        print("* Response from NPC: " + response.hex(" "))
+        print("* Response from NPC: {}".format(response.hex(" ")))
 
     # Get Segment from internal segment store
         if pakId not in paks:
@@ -179,9 +179,9 @@ def handle_set_channel_code(data):
         print(data.hex(' '))
         data = data + recvBytes(remaining)
 
-    print("* Received Channel code bytes: " + data.hex())
+    print("* Received Channel code bytes: {}".format(data.hex()))
     channelCode = bytes(reversed(data)).hex()
-    print("* Channel code: " + channelCode)
+    print("* Channel code: {}".format(channelCode))
     sendBytes(bytes([0xe4]))
 
 
@@ -246,7 +246,7 @@ def recvBytes(length=None):
     else:
         data = serial_connection.read(length)
     if (len(data) > 0):
-        print("NPC-->NA:   " + data.hex(' '))
+        print("NPC-->NA:   {}".format(data.hex(' ')))
     return data
 
 # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
@@ -257,13 +257,13 @@ def loadpak(filename):
         pak1 = NabuPak()
         paknum = int(filename, 16)
         print(paknum)
-        print("### Loading NABU segments into memory from "+args.internetlocation)
+        print("### Loading NABU segments into memory from {}".format(args.internetlocation))
         pak1.get_cloud_pak(args.internetlocation, paknum)
     else:
         file = filename.upper()
         print("* Loading NABU Segments into memory from disk")
         pak1 = NabuPak()
-        if os.path.exists(args.paksource + file + ".pak") == False:
+        if not os.path.exists(args.paksource + file + ".pak"):
             print("Pak file does not exist... here, have some penguins instead.")
         pak1.ingest_from_file(args.paksource + file + ".pak")
     paks[filename] = pak1
@@ -329,7 +329,7 @@ if __name__ == "__main__":
                 case 0x85:
                     print("* Set Channel Code")
                     handle_set_channel_code(data)
-                    print("* Channel code is now " + channelCode)
+                    print("* Channel code is now {}".format(channelCode))
                 case 0x8f:
                     print("* Handle 0x8f")
                     handle_0x8f_req(data)
@@ -337,6 +337,6 @@ if __name__ == "__main__":
                     print("got request type 10, sending time")
                     send_time()
                     sendBytes(bytes([0x10, 0xe1]))
-                case _:
+                case _: #default case
                     print("* Req type {} is Unimplemented :(".format(data[0]))
                     handle_unimplemented_req(data)
