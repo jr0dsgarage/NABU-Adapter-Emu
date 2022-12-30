@@ -283,8 +283,8 @@ def get_args(parser):
 def main(args):
     # channelCode = None
     channelCode = '0000'
-
-    loadpak(DEFAULT_PAK_NAME, args, loaded_paks = {})
+    loaded_paks = {}
+    loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
     serial_connection = serial.Serial(
         port=args.ttyname,
         baudrate=args.baudrate,
