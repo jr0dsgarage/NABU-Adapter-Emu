@@ -154,13 +154,10 @@ def handle_download_segment(data):
 #            print(bytes(chk[-2:]))
 #            print(bytes(segment.segment_crc))
         if chk[-2:] == segment.segment_crc:
-            print("Pak: "+segment.pak_id.hex()+"  Segment: "+segment.segmentnum.hex() +
-                  "  Checksum: "+segment.segment_crc.hex()+"    [Checksum Valid!]")
+            print("Pak: {} Segment: {}  Checksum: {}  [Checksum Valid!]".format(segment.pak_id.hex(),segment.segmentnum.hex(),segment.segment_crc.hex()))
         else:
-            print("Pak: "+segment.pak_id.hex()+"  Segment: " +
-                  segment.segmentnum.hex() + "  Checksum: "+segment.segment_crc.hex())
-            print("##### Corrupt PAK file! #####  Checksum:", segment.segment_crc.hex(
-            ), "Should be:", chk[-2:].hex(), " ##### fixing...")
+            print("Pak: {}  Segment: {}  Checksum: {}".format(segment.pak_id.hex(),segment.segmentnum.hex() ,segment.segment_crc.hex()))
+            print("##### Corrupt PAK file! #####  Checksum: {} Should be: {} ##### fixing...".format(segment.segment_crc.hex(),chk[-2:].hex()))
             segment_data = chk
 
     # escape pack data (0x10 bytes should be escaped maybe?)
