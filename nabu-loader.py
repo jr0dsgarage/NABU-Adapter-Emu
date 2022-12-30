@@ -244,10 +244,8 @@ def receiveBytes(serial_connection, length=None):
         print("NPC-->NA:   {}".format(received_data.hex(' ')))
     return received_data
 
-# Loads pak from file, assumes file names are all upper case with a lower case .pak extension
 
-
-def loadpak(filename, args, paks):
+def loadpak(filename, args, paks): # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
     if args.internetlocation:
         pak1 = NabuPak()
         print("### Loading NABU segments into memory from {}".format(
@@ -282,15 +280,11 @@ def get_args(parser):
     return parser.parse_args()
 
 
-# Begin main code here
-def main():
-    args = get_args(argparse.ArgumentParser())
-    paks = {}    # Creates library variable to store loaded paks in memory
-
+def main(args):
     # channelCode = None
     channelCode = '0000'
 
-    loadpak(DEFAULT_PAK_NAME, args, paks)
+    loadpak(DEFAULT_PAK_NAME, args, loaded_paks = {})
     serial_connection = serial.Serial(
         port=args.ttyname,
         baudrate=args.baudrate,
@@ -300,8 +294,9 @@ def main():
     while True:
         data = receiveBytes(serial_connection,)
         if data:
-            handle_request(serial_connection, args, data, paks, channelCode)
+            handle_request(serial_connection, args, data, loaded_paks, channelCode)
 
 
 if __name__ == "__main__":
-    main()
+    args = get_args(argparse.ArgumentParser())
+    main(args)
