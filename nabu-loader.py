@@ -40,6 +40,7 @@ DEFAULT_PAK_DIRECTORY = "./paks/"
 DEFAULT_PAK_NAME = "000001"
 CLOUD_LOCATION = "http://cloud.nabu.ca/cycle1/"
 # CLOUD_LOCATION=None
+
 match platform.system():
     case "Linux":
         DEFAULT_SERIAL_PORT = "/dev/ttyUSB0"
@@ -67,7 +68,9 @@ def send_ack(serial_connection):
 
 def send_time(serial_connection):
     # Pre-formed time segment, sends Jan 1 1984 at 00:00:00
-    # sendBytes(bytes([0x7f, 0xff, 0xff, 0x00, 0x01, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0x80, 0x20, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02, 0x54, 0x01, 0x01, 0x00, 0x00, 0x00, 0xc6, 0x3a]))
+    """ old sendBytes
+     sendBytes(bytes([0x7f, 0xff, 0xff, 0x00, 0x01, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0x80, 0x20, 0x00, 0x00,
+                        0x00, 0x00,0x02, 0x02, 0x02, 0x54, 0x01, 0x01, 0x00, 0x00, 0x00, 0xc6, 0x3a]))"""
     currenttime = NabuSegment()
     sendBytes(serial_connection, currenttime.get_time_segment())
 
@@ -213,12 +216,12 @@ def sendBytes(serial_connection, data):
 
     while index + chunk_size < end:
         serial_connection.write(data[index:index+chunk_size])
-#        print("NA-->NPC:  " + data[index:index+chunk_size].hex(' '))
+        # print("NA-->NPC:  " + data[index:index+chunk_size].hex(' '))
         index += chunk_size
         time.sleep(delay_secs)
 
     if index != end:
-        #        print("NA-->NPC:  " + data[index:end].hex(' '))
+        # print("NA-->NPC:  " + data[index:end].hex(' '))
         serial_connection.write(data[index:end])
 
 
