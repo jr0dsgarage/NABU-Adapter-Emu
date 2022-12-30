@@ -33,17 +33,18 @@ import platform
 
 from nabu_data import NabuSegment, NabuPak
 
-MAX_READ=65535
-DEFAULT_BAUDRATE=111863
+MAX_READ = 65535
+DEFAULT_BAUDRATE = 111863
 
-DEFAULT_PAK_DIRECTORY="./paks/"
-CLOUD_LOCATION="http://cloud.nabu.ca/cycle1/"
-#CLOUD_LOCATION=None
+DEFAULT_PAK_DIRECTORY = "./paks/"
+DEFAULT_PAK_NAME = "000001"
+CLOUD_LOCATION = "http://cloud.nabu.ca/cycle1/"
+# CLOUD_LOCATION=None
 match platform.system():
     case "Linux":
-        DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
+        DEFAULT_SERIAL_PORT = "/dev/ttyUSB0"
     case "Windows":
-        DEFAULT_SERIAL_PORT="COM3"
+        DEFAULT_SERIAL_PORT = "COM3"
 
 request_handlers = {
     0x03: '* 0x03 request',
@@ -61,64 +62,67 @@ request_handlers = {
 
 
 def send_ack(serial_connection):
-    sendBytes(serial_connection,bytes([0x10, 0x06]))
+    sendBytes(serial_connection, bytes([0x10, 0x06]))
 
 
-def send_time(serial_connection,):
+def send_time(serial_connection):
     # Pre-formed time segment, sends Jan 1 1984 at 00:00:00
     # sendBytes(bytes([0x7f, 0xff, 0xff, 0x00, 0x01, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0x80, 0x20, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02, 0x54, 0x01, 0x01, 0x00, 0x00, 0x00, 0xc6, 0x3a]))
     currenttime = NabuSegment()
-    sendBytes(serial_connection,currenttime.get_time_segment())
+    sendBytes(serial_connection, currenttime.get_time_segment())
 
 # TODO:  We can probably get rid of handle_0xf0_request, handle_0x0f_request and handle_0x03_request
 # TODO:  as these bytes may have been from RS-422 buffer overruns / other errors
 
-def handle_request(serial_connection,args,data,paks,channelCode):
+
+def handle_request(serial_connection, args, data, paks, channelCode):
     print(request_handlers[data[0]])
     match data[0]:
         case 0xf0, 0x0f, 0x03:
-            sendBytes(serial_connection,bytes([0xe4]))
-        case 0x10: # send time
+            sendBytes(serial_connection, bytes([0xe4]))
+        case 0x10:  # send time
             print("got request type 10, sending time")
             send_time(serial_connection)
-            sendBytes(serial_connection,bytes([0x10, 0xe1]))
-        case 0x80: # reset segment
-            sendBytes(serial_connection,bytes([0x10, 0x06, 0xe4]))
-        case 0x81: # Reset
+            sendBytes(serial_connection, bytes([0x10, 0xe1]))
+        case 0x80:  # reset segment
+            sendBytes(serial_connection, bytes([0x10, 0x06, 0xe4]))
+        case 0x81:  # Reset
             send_ack(serial_connection)
-        case 0x82: # Get Status
+        case 0x82:  # Get Status
             send_ack(serial_connection)
             response = receiveBytes(serial_connection)
-            if channelCode is None: # Ask NABUPC to set channel code
+            if channelCode is None:  # Ask NABUPC to set channel code
                 print("* Channel Code is not set yet.")
-                sendBytes(serial_connection,bytes([0x9f, 0x10, 0xe1]))
-            else: # Report that channel code is already set
-                print("* Channel code is set to {}".format(channelCode))               
-                sendBytes(serial_connection,bytes([0x1f, 0x10, 0xe1]))
-        case 0x83: # Set Status
-            sendBytes(serial_connection,bytes([0x10, 0x06, 0xe4]))
-        case 0x84: # Download Segment Request
+                sendBytes(serial_connection, bytes([0x9f, 0x10, 0xe1]))
+            else:  # Report that channel code is already set
+                print("* Channel code is set to {}".format(channelCode))
+                sendBytes(serial_connection, bytes([0x1f, 0x10, 0xe1]))
+        case 0x83:  # Set Status
+            sendBytes(serial_connection, bytes([0x10, 0x06, 0xe4]))
+        case 0x84:  # Download Segment Request
             # ; pak load request
             # [11]        NPC       $84
             #              NA        $10 06
             send_ack(serial_connection)
-            segmentNumber = recvBytesExactLen(serial_connection,1)[0]
-            pakNumber = bytes(reversed(recvBytesExactLen(serial_connection,3)))
+            segmentNumber = recvBytesExactLen(serial_connection, 1)[0]
+            pakNumber = bytes(
+                reversed(recvBytesExactLen(serial_connection, 3)))
             pakId = str(pakNumber.hex())
-            print("* Requested Pak ID: {} * Requested Segment Number: {}".format(pakId,segmentNumber))
+            print(
+                "* Requested Pak ID: {} * Requested Segment Number: {}".format(pakId, segmentNumber))
 
             if pakId == "7fffff":
                 print("Time packet requested")
-                sendBytes(serial_connection,bytes([0xe4, 0x91]))
+                sendBytes(serial_connection, bytes([0xe4, 0x91]))
                 pakId == ""
             else:
-                sendBytes(serial_connection,bytes([0xe4, 0x91]))
-                response = receiveBytes(serial_connection,2)
+                sendBytes(serial_connection, bytes([0xe4, 0x91]))
+                response = receiveBytes(serial_connection, 2)
                 print("* Response from NPC: {}".format(response.hex(" ")))
-                if pakId not in paks: # Get Segment from internal segment store
+                if pakId not in paks:  # Get Segment from internal segment store
                     print("Pak not already in memory... loading...")
-                    loadpak(pakId,args,paks)
-                    sendBytes(serial_connection,bytes([0x91]))
+                    loadpak(pakId, args, paks)
+                    sendBytes(serial_connection, bytes([0x91]))
                 pak = paks[pakId]
 
             # Get requested segment from that pak
@@ -154,40 +158,43 @@ def handle_request(serial_connection,args,data,paks,channelCode):
                 print(bytes(segment.segment_crc)) 
                 """
                 if chk[-2:] == segment.segment_crc:
-                    print("Pak: {} Segment: {}  Checksum: {}  [Checksum Valid!]".format(segment.pak_id.hex(),segment.segmentnum.hex(),segment.segment_crc.hex()))
+                    print("Pak: {} Segment: {}  Checksum: {}  [Checksum Valid!]".format(
+                        segment.pak_id.hex(), segment.segmentnum.hex(), segment.segment_crc.hex()))
                 else:
-                    print("Pak: {}  Segment: {}  Checksum: {}".format(segment.pak_id.hex(),segment.segmentnum.hex() ,segment.segment_crc.hex()))
-                    print("##### Corrupt PAK file! #####  Checksum: {} Should be: {} ##### fixing...".format(segment.segment_crc.hex(),chk[-2:].hex()))
+                    print("Pak: {}  Segment: {}  Checksum: {}".format(
+                        segment.pak_id.hex(), segment.segmentnum.hex(), segment.segment_crc.hex()))
+                    print("##### Corrupt PAK file! #####  Checksum: {} Should be: {} ##### fixing...".format(
+                        segment.segment_crc.hex(), chk[-2:].hex()))
                     segment_data = chk
 
                 # escape pack data (0x10 bytes should be escaped maybe?)
                 escaped_segment_data = escapeUploadBytes(segment_data)
-                sendBytes(serial_connection,escaped_segment_data)
-                sendBytes(serial_connection,bytes([0x10, 0xe1]))
-        case 0x85: # Set Channel Code
-                send_ack(serial_connection,)
-                data = recvBytesExactLen(2)
-                while len(data) < 2:
-                    remaining = 2 - len(data)
-                    print("Waiting for channel code")
-                    print(data.hex(' '))
-                    data = data + receiveBytes(remaining)
+                sendBytes(serial_connection, escaped_segment_data)
+                sendBytes(serial_connection, bytes([0x10, 0xe1]))
+        case 0x85:  # Set Channel Code
+            send_ack(serial_connection,)
+            data = recvBytesExactLen(2)
+            while len(data) < 2:
+                remaining = 2 - len(data)
+                print("Waiting for channel code")
+                print(data.hex(' '))
+                data = data + receiveBytes(remaining)
 
-                print("* Received Channel code bytes: {}".format(data.hex()))
-                channelCode = bytes(reversed(data)).hex()
-                print("* Channel code: {}".format(channelCode))
-                sendBytes(serial_connection,bytes([0xe4]))
+            print("* Received Channel code bytes: {}".format(data.hex()))
+            channelCode = bytes(reversed(data)).hex()
+            print("* Channel code: {}".format(channelCode))
+            sendBytes(serial_connection, bytes([0xe4]))
         case 0x8f:
             print("* 0x8f request")
             data = receiveBytes(serial_connection)
-            sendBytes(serial_connection,bytes([0xe4]))
-        case _: #default case
+            sendBytes(serial_connection, bytes([0xe4]))
+        case _:  # default case
             print("* ??? Unimplemented request")
             print("* {}".format(data.hex(' ')))
 
+
 def escapeUploadBytes(data):
     escapedBytes = bytearray()
-
     for idx in range(len(data)):
         byte = data[idx]
         if (byte == 0x10):
@@ -195,11 +202,10 @@ def escapeUploadBytes(data):
             escapedBytes.append(byte)
         else:
             escapedBytes.append(byte)
-
     return escapedBytes
 
 
-def sendBytes(serial_connection,data):
+def sendBytes(serial_connection, data):
     chunk_size = 6
     index = 0
     delay_secs = 0
@@ -216,20 +222,20 @@ def sendBytes(serial_connection,data):
         serial_connection.write(data[index:end])
 
 
-def recvBytesExactLen(serial_connection,length=None):
+def recvBytesExactLen(serial_connection, length=None):
     if (length is None):
         return None
-    data = receiveBytes(serial_connection,length)
+    data = receiveBytes(serial_connection, length)
     while len(data) < length:
         remaining = length - len(data)
 #        print("Waiting for {} more bytes".format(length - len(data)))
         print(data.hex(' '))
         time.sleep(0.01)
-        data = data + receiveBytes(serial_connection,remaining)
+        data = data + receiveBytes(serial_connection, remaining)
     return data
 
 
-def receiveBytes(serial_connection,length=None):
+def receiveBytes(serial_connection, length=None):
     if (length is None):
         received_data = serial_connection.read(MAX_READ)
     else:
@@ -239,13 +245,14 @@ def receiveBytes(serial_connection,length=None):
     return received_data
 
 # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
-def loadpak(filename,args,paks):
-    if args.internetlocation is not None:
+
+
+def loadpak(filename, args, paks):
+    if args.internetlocation:
         pak1 = NabuPak()
-        paknum = int(filename, 16)
-        print(paknum)
-        print("### Loading NABU segments into memory from {}".format(args.internetlocation))
-        pak1.get_cloud_pak(args.internetlocation, paknum)
+        print("### Loading NABU segments into memory from {}".format(
+            args.internetlocation))
+        pak1.get_cloud_pak(args.internetlocation, int(filename, 16))
     else:
         file = filename.upper()
         print("* Loading NABU Segments into memory from disk")
@@ -255,16 +262,19 @@ def loadpak(filename,args,paks):
         pak1.ingest_from_file(args.paksource + file + ".pak")
     paks[filename] = pak1
 
+
 def get_args(parser):
     parser.add_argument("-t", "--ttyname",
                         help="Set serial device (e.g. /dev/ttyUSB0 or COM3)",
                         default=DEFAULT_SERIAL_PORT)
     parser.add_argument("-b", "--baudrate",
                         type=int,
-                        help="Set serial baud rate (default: {} BPS)".format(DEFAULT_BAUDRATE),
+                        help="Set serial baud rate (default: {} BPS)".format(
+                            DEFAULT_BAUDRATE),
                         default=DEFAULT_BAUDRATE)
     parser.add_argument("-p", "--paksource",
-                        help="Set location of the pak files (default: {} )".format(DEFAULT_PAK_DIRECTORY),
+                        help="Set location of the pak files (default: {} )".format(
+                            DEFAULT_PAK_DIRECTORY),
                         default=DEFAULT_PAK_DIRECTORY)
     parser.add_argument("-i", "--internetlocation",
                         help="Set Internet location to source pak files, if not specified, load from disk",
@@ -276,20 +286,21 @@ def get_args(parser):
 def main():
     args = get_args(argparse.ArgumentParser())
     paks = {}    # Creates library variable to store loaded paks in memory
-    
+
     # channelCode = None
     channelCode = '0000'
-    
-    loadpak("000001",args,paks)
+
+    loadpak(DEFAULT_PAK_NAME, args, paks)
     serial_connection = serial.Serial(
-        port = args.ttyname,
-        baudrate = args.baudrate,
-        timeout = 0.5,
-        stopbits = serial.STOPBITS_TWO)
+        port=args.ttyname,
+        baudrate=args.baudrate,
+        timeout=0.5,
+        stopbits=serial.STOPBITS_TWO)
 
     while True:
         data = receiveBytes(serial_connection,)
-        if data: handle_request(serial_connection,args,data,paks,channelCode)
+        if data:
+            handle_request(serial_connection, args, data, paks, channelCode)
 
 
 if __name__ == "__main__":
