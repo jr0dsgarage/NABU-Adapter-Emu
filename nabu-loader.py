@@ -45,153 +45,145 @@ match platform.system():
     case "Windows":
         DEFAULT_SERIAL_PORT="COM3"
 
+request_handlers = {
+    0x03: '* 0x03 request',
+    0x0f: '* 0x0f request',
+    0xf0: '* 0xf0 request',
+    0x80: '* Reset segment handler',
+    0x81: '* Reset',
+    0x82: '* Get Status',
+    0x83: '* Set Status',
+    0x84: '* Download Segment Request',
+    0x85: '* Set Channel Code',
+    0x8f: '* Handle 0x8f',
+    0x10: '* Request type 10> Sending Time',
+}
 
-def send_ack():
-    sendBytes(bytes([0x10, 0x06]))
+
+def send_ack(serial_connection):
+    sendBytes(serial_connection,bytes([0x10, 0x06]))
 
 
-def send_time():
+def send_time(serial_connection,):
     # Pre-formed time segment, sends Jan 1 1984 at 00:00:00
     # sendBytes(bytes([0x7f, 0xff, 0xff, 0x00, 0x01, 0x7f, 0xff, 0xff, 0xff, 0x7f, 0x80, 0x20, 0x00, 0x00, 0x00, 0x00, 0x02, 0x02, 0x02, 0x54, 0x01, 0x01, 0x00, 0x00, 0x00, 0xc6, 0x3a]))
     currenttime = NabuSegment()
-    sendBytes(currenttime.get_time_segment())
+    sendBytes(serial_connection,currenttime.get_time_segment())
 
 # TODO:  We can probably get rid of handle_0xf0_request, handle_0x0f_request and handle_0x03_request
 # TODO:  as these bytes may have been from RS-422 buffer overruns / other errors
 
+def handle_request(serial_connection,args,data,paks,channelCode):
+    print(request_handlers[data[0]])
+    match data[0]:
+        case 0xf0, 0x0f, 0x03:
+            sendBytes(serial_connection,bytes([0xe4]))
+        case 0x10: # send time
+            print("got request type 10, sending time")
+            send_time(serial_connection)
+            sendBytes(serial_connection,bytes([0x10, 0xe1]))
+        case 0x80: # reset segment
+            sendBytes(serial_connection,bytes([0x10, 0x06, 0xe4]))
+        case 0x81: # Reset
+            send_ack(serial_connection)
+        case 0x82: # Get Status
+            send_ack(serial_connection)
+            response = receiveBytes(serial_connection)
+            if channelCode is None: # Ask NABUPC to set channel code
+                print("* Channel Code is not set yet.")
+                sendBytes(serial_connection,bytes([0x9f, 0x10, 0xe1]))
+            else: # Report that channel code is already set
+                print("* Channel code is set to {}".format(channelCode))               
+                sendBytes(serial_connection,bytes([0x1f, 0x10, 0xe1]))
+        case 0x83: # Set Status
+            sendBytes(serial_connection,bytes([0x10, 0x06, 0xe4]))
+        case 0x84: # Download Segment Request
+            # ; pak load request
+            # [11]        NPC       $84
+            #              NA        $10 06
+            send_ack(serial_connection)
+            segmentNumber = recvBytesExactLen(serial_connection,1)[0]
+            pakNumber = bytes(reversed(recvBytesExactLen(serial_connection,3)))
+            pakId = str(pakNumber.hex())
+            print("* Requested Pak ID: {} * Requested Segment Number: {}".format(pakId,segmentNumber))
 
-def handle_0xf0_request(data):
-    sendBytes(bytes([0xe4]))
+            if pakId == "7fffff":
+                print("Time packet requested")
+                sendBytes(serial_connection,bytes([0xe4, 0x91]))
+                pakId == ""
+            else:
+                sendBytes(serial_connection,bytes([0xe4, 0x91]))
+                response = receiveBytes(serial_connection,2)
+                print("* Response from NPC: {}".format(response.hex(" ")))
+                if pakId not in paks: # Get Segment from internal segment store
+                    print("Pak not already in memory... loading...")
+                    loadpak(pakId,args,paks)
+                    sendBytes(serial_connection,bytes([0x91]))
+                pak = paks[pakId]
 
+            # Get requested segment from that pak
+                segment_data = pak.get_segment(segmentNumber)
 
-def handle_0x0f_request(data):
-    sendBytes(bytes([0xe4]))
+            # Dump information about segment.  'segment' is otherwise unused
+                segment = NabuSegment()
+                segment.ingest_bytes(segment_data)
+                """
+                print("* Segment to send: " + segment_data.hex(' '))
+                print("* Pak ID: "+ segment.pak_id.hex())
+                print("* Segment Number: " + segment.segmentnum.hex())
+                print("* Pak owner: " + segment.pak_owner.hex())
+                print("* Pak tier: " + segment.pak_tier.hex())
+                print("* Pak mystery_bytes: " + segment.pak_mystery_bytes.hex())
+                print("* Segment Type: " + segment.segment_type.hex())
+                print("* Segment Number: " + segment.segment_number.hex())
+                print("* Segment Offset: " + segment.segment_offset.hex())
+                print("* Segment CRC: " + segment.segment_crc.hex())
+                print("* Segment length: {}".format(len(segment_data))) 
+                """
 
+                # check checksum
+                seglength = len(segment_data)
+                # print(seglength)
+                # print(segment_data)
+                checkedpack = NabuSegment()
+                sd = bytearray(segment_data)
+                chk = checkedpack.add_checksum(sd[0:seglength-2])
+                """ 
+                print(chk[-2:].hex(' '))
+                print(bytes(chk[-2:]))
+                print(bytes(segment.segment_crc)) 
+                """
+                if chk[-2:] == segment.segment_crc:
+                    print("Pak: {} Segment: {}  Checksum: {}  [Checksum Valid!]".format(segment.pak_id.hex(),segment.segmentnum.hex(),segment.segment_crc.hex()))
+                else:
+                    print("Pak: {}  Segment: {}  Checksum: {}".format(segment.pak_id.hex(),segment.segmentnum.hex() ,segment.segment_crc.hex()))
+                    print("##### Corrupt PAK file! #####  Checksum: {} Should be: {} ##### fixing...".format(segment.segment_crc.hex(),chk[-2:].hex()))
+                    segment_data = chk
 
-def handle_0x03_request(data):
-    sendBytes(bytes([0xe4]))
+                # escape pack data (0x10 bytes should be escaped maybe?)
+                escaped_segment_data = escapeUploadBytes(segment_data)
+                sendBytes(serial_connection,escaped_segment_data)
+                sendBytes(serial_connection,bytes([0x10, 0xe1]))
+        case 0x85: # Set Channel Code
+                send_ack(serial_connection,)
+                data = recvBytesExactLen(2)
+                while len(data) < 2:
+                    remaining = 2 - len(data)
+                    print("Waiting for channel code")
+                    print(data.hex(' '))
+                    data = data + receiveBytes(remaining)
 
-
-def handle_reset_segment_handler(data):
-    sendBytes(bytes([0x10, 0x06, 0xe4]))
-
-
-def handle_reset(data):
-    send_ack()
-
-
-def handle_get_status(data):
-    global channelCode
-    send_ack()
-
-    response = recvBytes()
-    if channelCode is None:
-        print("* Channel Code is not set yet.")
-        # Ask NPC to set channel code
-        sendBytes(bytes([0x9f, 0x10, 0xe1]))
-    else:
-        print("* Channel code is set to {}".format(channelCode))
-        # Report that channel code is already set
-        sendBytes(bytes([0x1f, 0x10, 0xe1]))
-
-
-def handle_set_status(data):
-    sendBytes(bytes([0x10, 0x06, 0xe4]))
-
-
-def handle_download_segment(data):
-    # ; pak load request
-    # [11]        NPC       $84
-    #              NA        $10 06
-    send_ack()
-    segmentNumber = recvBytesExactLen(1)[0]
-    pakNumber = bytes(reversed(recvBytesExactLen(3)))
-    pakId = str(pakNumber.hex())
-    print("* Requested Pak ID: {} * Requested Segment Number: {}".format(pakId,segmentNumber))
-
-    if pakId == "7fffff":
-        print("Time packet requested")
-        sendBytes(bytes([0xe4, 0x91]))
-        pakId == ""
-    else:
-        sendBytes(bytes([0xe4, 0x91]))
-        response = recvBytes(2)
-        print("* Response from NPC: {}".format(response.hex(" ")))
-
-    # Get Segment from internal segment store
-        if pakId not in paks:
-            print("Pak not already in memory... loading...")
-            loadpak(pakId)
-            sendBytes(bytes([0x91]))
-        pak = paks[pakId]
-
-    # Get requested segment from that pak
-        segment_data = pak.get_segment(segmentNumber)
-
-    # Dump information about segment.  'segment' is otherwise unused
-        segment = NabuSegment()
-        segment.ingest_bytes(segment_data)
-# print("* Segment to send: " + segment_data.hex(' '))
-#            print("* Pak ID: "+ segment.pak_id.hex())
-#            print("* Segment Number: " + segment.segmentnum.hex())
-#            print("* Pak owner: " + segment.pak_owner.hex())
-#            print("* Pak tier: " + segment.pak_tier.hex())
-#            print("* Pak mystery_bytes: " + segment.pak_mystery_bytes.hex())
-#            print("* Segment Type: " + segment.segment_type.hex())
-#            print("* Segment Number: " + segment.segment_number.hex())
-#            print("* Segment Offset: " + segment.segment_offset.hex())
-#            print("* Segment CRC: " + segment.segment_crc.hex())
-#            print("* Segment length: {}".format(len(segment_data)))
-
-    # check checksum
-        seglength = len(segment_data)
-#            print(seglength)
-#            print(segment_data)
-        checkedpack = NabuSegment()
-        sd = bytearray(segment_data)
-        chk = checkedpack.add_checksum(sd[0:seglength-2])
-#            print(chk[-2:].hex(' '))
-#            print(bytes(chk[-2:]))
-#            print(bytes(segment.segment_crc))
-        if chk[-2:] == segment.segment_crc:
-            print("Pak: {} Segment: {}  Checksum: {}  [Checksum Valid!]".format(segment.pak_id.hex(),segment.segmentnum.hex(),segment.segment_crc.hex()))
-        else:
-            print("Pak: {}  Segment: {}  Checksum: {}".format(segment.pak_id.hex(),segment.segmentnum.hex() ,segment.segment_crc.hex()))
-            print("##### Corrupt PAK file! #####  Checksum: {} Should be: {} ##### fixing...".format(segment.segment_crc.hex(),chk[-2:].hex()))
-            segment_data = chk
-
-    # escape pack data (0x10 bytes should be escaped maybe?)
-        escaped_segment_data = escapeUploadBytes(segment_data)
-        sendBytes(escaped_segment_data)
-        sendBytes(bytes([0x10, 0xe1]))
-
-
-def handle_set_channel_code(data):
-    global channelCode
-    send_ack()
-    data = recvBytesExactLen(2)
-    while len(data) < 2:
-        remaining = 2 - len(data)
-        print("Waiting for channel code")
-        print(data.hex(' '))
-        data = data + recvBytes(remaining)
-
-    print("* Received Channel code bytes: {}".format(data.hex()))
-    channelCode = bytes(reversed(data)).hex()
-    print("* Channel code: {}".format(channelCode))
-    sendBytes(bytes([0xe4]))
-
-
-def handle_0x8f_req(data):
-    print("* 0x8f request")
-    data = recvBytes()
-    sendBytes(bytes([0xe4]))
-
-
-def handle_unimplemented_req(data):
-    print("* ??? Unimplemented request")
-    print("* " + data.hex(' '))
-
+                print("* Received Channel code bytes: {}".format(data.hex()))
+                channelCode = bytes(reversed(data)).hex()
+                print("* Channel code: {}".format(channelCode))
+                sendBytes(serial_connection,bytes([0xe4]))
+        case 0x8f:
+            print("* 0x8f request")
+            data = receiveBytes(serial_connection)
+            sendBytes(serial_connection,bytes([0xe4]))
+        case _: #default case
+            print("* ??? Unimplemented request")
+            print("* {}".format(data.hex(' ')))
 
 def escapeUploadBytes(data):
     escapedBytes = bytearray()
@@ -207,7 +199,7 @@ def escapeUploadBytes(data):
     return escapedBytes
 
 
-def sendBytes(data):
+def sendBytes(serial_connection,data):
     chunk_size = 6
     index = 0
     delay_secs = 0
@@ -224,32 +216,30 @@ def sendBytes(data):
         serial_connection.write(data[index:end])
 
 
-def recvBytesExactLen(length=None):
+def recvBytesExactLen(serial_connection,length=None):
     if (length is None):
         return None
-    data = recvBytes(length)
+    data = receiveBytes(serial_connection,length)
     while len(data) < length:
         remaining = length - len(data)
 #        print("Waiting for {} more bytes".format(length - len(data)))
         print(data.hex(' '))
         time.sleep(0.01)
-        data = data + recvBytes(remaining)
+        data = data + receiveBytes(serial_connection,remaining)
     return data
 
 
-def recvBytes(length=None):
+def receiveBytes(serial_connection,length=None):
     if (length is None):
-        data = serial_connection.read(MAX_READ)
+        received_data = serial_connection.read(MAX_READ)
     else:
-        data = serial_connection.read(length)
-    if (len(data) > 0):
-        print("NPC-->NA:   {}".format(data.hex(' ')))
-    return data
+        received_data = serial_connection.read(length)
+    if (len(received_data) > 0):
+        print("NPC-->NA:   {}".format(received_data.hex(' ')))
+    return received_data
 
 # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
-
-
-def loadpak(filename):
+def loadpak(filename,args,paks):
     if args.internetlocation is not None:
         pak1 = NabuPak()
         paknum = int(filename, 16)
@@ -283,57 +273,24 @@ def get_args(parser):
 
 
 # Begin main code here
-if __name__ == "__main__":
-    global paks
+def main():
+    args = get_args(argparse.ArgumentParser())
     paks = {}    # Creates library variable to store loaded paks in memory
+    
     # channelCode = None
     channelCode = '0000'
-    args = get_args(argparse.ArgumentParser())
-    loadpak("000001")
-    serial_connection = serial.Serial(port = args.ttyname,
-                                     baudrate = args.baudrate,
-                                     timeout = 0.5,
-                                     stopbits = serial.STOPBITS_TWO)
+    
+    loadpak("000001",args,paks)
+    serial_connection = serial.Serial(
+        port = args.ttyname,
+        baudrate = args.baudrate,
+        timeout = 0.5,
+        stopbits = serial.STOPBITS_TWO)
 
     while True:
-        data = recvBytes()
-        if len(data) > 0:
-            match data[0]:
-                case 0x03:
-                    print("* 0x03 request")
-                    handle_0x03_request(data)
-                case 0x0f:
-                    print("* 0x0f request")
-                    handle_0x0f_request(data)
-                case 0xf0:
-                    print("* 0xf0 request")
-                    handle_0xf0_request(data)
-                case 0x80:
-                    print("* Reset segment handler")
-                    handle_reset_segment_handler(data)
-                case 0x81:
-                    print("* Reset")
-                    handle_reset(data)
-                case 0x82:
-                    print("* Get Status")
-                    handle_get_status(data)
-                case 0x83:
-                    print("* Set Status")
-                    handle_set_status(data)
-                case 0x84:
-                    print("* Download Segment Request")
-                    handle_download_segment(data)
-                case 0x85:
-                    print("* Set Channel Code")
-                    handle_set_channel_code(data)
-                    print("* Channel code is now {}".format(channelCode))
-                case 0x8f:
-                    print("* Handle 0x8f")
-                    handle_0x8f_req(data)
-                case 0x10:
-                    print("got request type 10, sending time")
-                    send_time()
-                    sendBytes(bytes([0x10, 0xe1]))
-                case _: #default case
-                    print("* Req type {} is Unimplemented :(".format(data[0]))
-                    handle_unimplemented_req(data)
+        data = receiveBytes(serial_connection,)
+        if data: handle_request(serial_connection,args,data,paks,channelCode)
+
+
+if __name__ == "__main__":
+    main()
