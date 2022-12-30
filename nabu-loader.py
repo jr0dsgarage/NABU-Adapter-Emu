@@ -29,8 +29,21 @@ import serial
 import time
 import os
 import argparse
+import platform
 
 from nabu_data import NabuSegment, NabuPak
+
+MAX_READ=65535
+DEFAULT_BAUDRATE=111863
+
+DEFAULT_PAK_DIRECTORY="./paks/"
+CLOUD_LOCATION="http://cloud.nabu.ca/cycle1/"
+#CLOUD_LOCATION=None
+match platform.system():
+    case "Linux":
+        DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
+    case "Windows":
+        DEFAULT_SERIAL_PORT="COM3"
 
 
 def send_ack():
@@ -94,8 +107,7 @@ def handle_download_segment(data):
     segmentNumber = recvBytesExactLen(1)[0]
     pakNumber = bytes(reversed(recvBytesExactLen(3)))
     pakId = str(pakNumber.hex())
-    print("* Requested Pak ID: " + pakId +
-          "  * Requested Segment Number: " + str(segmentNumber))
+    print("* Requested Pak ID: %0 * Requested Segment Number: %1".format(pakId,segmentNumber))
 
     if pakId == "7fffff":
         print("Time packet requested")
@@ -258,93 +270,90 @@ def loadpak(filename):
     paks[filename] = pak1
 
 
+
 # Begin main code here
-global paks
-paks = {}    # Creates library variable to store loaded paks in memory
-
-MAX_READ=65535
-DEFAULT_BAUDRATE=111863
-DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
-DEFAULT_PAK_DIRECTORY="./paks/"
-CLOUD_LOCATION="http://cloud.nabu.ca/cycle1/"
-#CLOUD_LOCATION=None
-
-# channelCode = None
-channelCode = '0000'
+if __name__ == "__main__":
+    global paks
+    paks = {}    # Creates library variable to store loaded paks in memory
 
 
-parser = argparse.ArgumentParser()
-# Optional serial port selection
-parser.add_argument("-t", "--ttyname",
-                    help="Set serial device (e.g. /dev/ttyUSB0)",
-                    default=DEFAULT_SERIAL_PORT)
-# Optional baud rate selection
-parser.add_argument("-b", "--baudrate",
-                    type=int,
-                    help="Set serial baud rate (default: {} BPS)".format(
-                        DEFAULT_BAUDRATE),
-                    default=DEFAULT_BAUDRATE)
-# Optional pak directory selection
-parser.add_argument("-p", "--paksource",
-                    help="Set location of the pak files (default: {} )".format(
-                        DEFAULT_PAK_DIRECTORY),
-                    default=DEFAULT_PAK_DIRECTORY)
-# Optional pak Internet location selection
-parser.add_argument("-i", "--internetlocation",
-                    help="Set Internet location to source pak files, if not specified, load from disk",
-                    default=CLOUD_LOCATION)
 
-args = parser.parse_args()
-
-loadpak("000001")
-
-# Some hard-coded things here (timeout, stopbits)
-ser = serial.Serial(port=args.ttyname, baudrate=args.baudrate,
-                    timeout=0.5, stopbits=serial.STOPBITS_TWO)
+    # channelCode = None
+    channelCode = '0000'
 
 
-# Some hard-coded things here.
-# ser = serial.Serial(port='/dev/ttyUSB0', baudrate=111865, timeout=0.5, stopbits=serial.STOPBITS_TWO)
+    parser = argparse.ArgumentParser()
+    # Optional serial port selection
+    parser.add_argument("-t", "--ttyname",
+                        help="Set serial device (e.g. /dev/ttyUSB0)",
+                        default=DEFAULT_SERIAL_PORT)
+    # Optional baud rate selection
+    parser.add_argument("-b", "--baudrate",
+                        type=int,
+                        help="Set serial baud rate (default: {} BPS)".format(
+                            DEFAULT_BAUDRATE),
+                        default=DEFAULT_BAUDRATE)
+    # Optional pak directory selection
+    parser.add_argument("-p", "--paksource",
+                        help="Set location of the pak files (default: {} )".format(
+                            DEFAULT_PAK_DIRECTORY),
+                        default=DEFAULT_PAK_DIRECTORY)
+    # Optional pak Internet location selection
+    parser.add_argument("-i", "--internetlocation",
+                        help="Set Internet location to source pak files, if not specified, load from disk",
+                        default=CLOUD_LOCATION)
 
-while True:
-    data = recvBytes()
-    if len(data) > 0:
-        match data[0]:
-            case 0x03:
-                print("* 0x03 request")
-                handle_0x03_request(data)
-            case 0x0f:
-                print("* 0x0f request")
-                handle_0x0f_request(data)
-            case 0xf0:
-                print("* 0xf0 request")
-                handle_0xf0_request(data)
-            case 0x80:
-                print("* Reset segment handler")
-                handle_reset_segment_handler(data)
-            case 0x81:
-                print("* Reset")
-                handle_reset(data)
-            case 0x82:
-                print("* Get Status")
-                handle_get_status(data)
-            case 0x83:
-                print("* Set Status")
-                handle_set_status(data)
-            case 0x84:
-                print("* Download Segment Request")
-                handle_download_segment(data)
-            case 0x85:
-                print("* Set Channel Code")
-                handle_set_channel_code(data)
-                print("* Channel code is now " + channelCode)
-            case 0x8f:
-                print("* Handle 0x8f")
-                handle_0x8f_req(data)
-            case 0x10:
-                print("got request type 10, sending time")
-                send_time()
-                sendBytes(bytes([0x10, 0xe1]))
-            case _:
-                print("* Req type {} is Unimplemented :(".format(data[0]))
-                handle_unimplemented_req(data)
+    args = parser.parse_args()
+
+    loadpak("000001")
+
+    # Some hard-coded things here (timeout, stopbits)
+    ser = serial.Serial(port=args.ttyname, baudrate=args.baudrate,
+                        timeout=0.5, stopbits=serial.STOPBITS_TWO)
+
+
+    # Some hard-coded things here.
+    # ser = serial.Serial(port='/dev/ttyUSB0', baudrate=111865, timeout=0.5, stopbits=serial.STOPBITS_TWO)
+
+    while True:
+        data = recvBytes()
+        if len(data) > 0:
+            match data[0]:
+                case 0x03:
+                    print("* 0x03 request")
+                    handle_0x03_request(data)
+                case 0x0f:
+                    print("* 0x0f request")
+                    handle_0x0f_request(data)
+                case 0xf0:
+                    print("* 0xf0 request")
+                    handle_0xf0_request(data)
+                case 0x80:
+                    print("* Reset segment handler")
+                    handle_reset_segment_handler(data)
+                case 0x81:
+                    print("* Reset")
+                    handle_reset(data)
+                case 0x82:
+                    print("* Get Status")
+                    handle_get_status(data)
+                case 0x83:
+                    print("* Set Status")
+                    handle_set_status(data)
+                case 0x84:
+                    print("* Download Segment Request")
+                    handle_download_segment(data)
+                case 0x85:
+                    print("* Set Channel Code")
+                    handle_set_channel_code(data)
+                    print("* Channel code is now " + channelCode)
+                case 0x8f:
+                    print("* Handle 0x8f")
+                    handle_0x8f_req(data)
+                case 0x10:
+                    print("got request type 10, sending time")
+                    send_time()
+                    sendBytes(bytes([0x10, 0xe1]))
+                case _:
+                    print("* Req type {} is Unimplemented :(".format(data[0]))
+                    handle_unimplemented_req(data)
