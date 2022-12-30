@@ -276,29 +276,22 @@ if __name__ == "__main__":
     global paks
     paks = {}    # Creates library variable to store loaded paks in memory
 
-
-
     # channelCode = None
     channelCode = '0000'
 
-
     parser = argparse.ArgumentParser()
-    # Optional serial port selection
     parser.add_argument("-t", "--ttyname",
                         help="Set serial device (e.g. /dev/ttyUSB0)",
                         default=DEFAULT_SERIAL_PORT)
-    # Optional baud rate selection
     parser.add_argument("-b", "--baudrate",
                         type=int,
                         help="Set serial baud rate (default: {} BPS)".format(
                             DEFAULT_BAUDRATE),
                         default=DEFAULT_BAUDRATE)
-    # Optional pak directory selection
     parser.add_argument("-p", "--paksource",
                         help="Set location of the pak files (default: {} )".format(
                             DEFAULT_PAK_DIRECTORY),
                         default=DEFAULT_PAK_DIRECTORY)
-    # Optional pak Internet location selection
     parser.add_argument("-i", "--internetlocation",
                         help="Set Internet location to source pak files, if not specified, load from disk",
                         default=CLOUD_LOCATION)
@@ -307,13 +300,8 @@ if __name__ == "__main__":
 
     loadpak("000001")
 
-    # Some hard-coded things here (timeout, stopbits)
-    ser = serial.Serial(port=args.ttyname, baudrate=args.baudrate,
+    serial_connection = serial.Serial(port=args.ttyname, baudrate=args.baudrate,
                         timeout=0.5, stopbits=serial.STOPBITS_TWO)
-
-
-    # Some hard-coded things here.
-    # ser = serial.Serial(port='/dev/ttyUSB0', baudrate=111865, timeout=0.5, stopbits=serial.STOPBITS_TWO)
 
     while True:
         data = recvBytes()
