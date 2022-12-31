@@ -45,6 +45,8 @@ import datetime
 import hashlib
 import requests
 
+from logger import logging
+
 from io import BytesIO
 
 from Crypto.Cipher import DES
@@ -59,12 +61,11 @@ class NabuPak:
         self.segments[segment_id] = segment_bytes
 
     def get_segment(self, segment_id):
-        #        print("* get_segment(segment_id = {})".format(segment_id))
         if segment_id in self.segments:
-            #            print("* Found!")
+            logging.debug("Segment Found: {}".format(segment_id))
             return self.segments[segment_id]
         else:
-            print("* Not found :(")
+            logging.warning("Segment Not Found: {}".format(segment_id))
             return None
 
     def get_segment_count(self):
@@ -78,8 +79,7 @@ class NabuPak:
             endflag = endflag - 1
             junkbytes = junkbytes + 1
         if junkbytes != 0:
-            print(" ##### Found ", junkbytes,
-                  "extra 1a's at the end of pak file. Trimming.")
+            logging.warning(" Found {} extra 1a's at the end of pak file. Trimming...".format(junkbytes))
         while index < endflag + 1:
             segment_length = pak_bytes[index] + pak_bytes[index + 1] * 256
             segment_id = pak_bytes[index + 5]
@@ -89,7 +89,8 @@ class NabuPak:
             index += 2
             segment_end = index + segment_length
 #            print("* Index = {}.  Segment_end = {}.".format(index, segment_end))
-            print("Segment ID: ", segment_id, " Index: ", index, " Segment end: ", segment_end, " Length: ", segment_length, "[",hex(segment_length),"]")
+            logging.debug("Segment ID: {} Index: {} Segment end: {} Length: {}[{}]".format(
+                            segment_id,index,segment_end,segment_length,hex(segment_length)))
             segment_bytes = pak_bytes[index:segment_end]
 ##            print("* Segment bytes: {}".format(segment_bytes.hex(' ')))
 
@@ -100,7 +101,7 @@ class NabuPak:
         f = open(pakfile, "rb")
         contents = bytes(f.read())
 #        print(" * Ingesting Segments from {}:".format(pakfile) + contents.hex(' '))
-        print("* Reading segments from : " + pakfile + "   " + str(len(contents)) + " bytes")
+        logging.debug("* Reading segments from : {}   {} bytes".format(pakfile,len(contents)))
         self.parse_pak(contents)
 
     def get_cloud_pak(self, location, paknum):
@@ -110,16 +111,15 @@ class NabuPak:
         hashstr = hashlib.md5((segnum + "nabu").encode('utf-8')).hexdigest().upper()
         hashstr = "-".join([hashstr[i:i+2] for i in range(0, len(hashstr), 2)])
         npakname = hashstr + ".npak"
-        print(npakname)
+        #print(npakname)
         cloudpak = requests.get(location + npakname, headers={"User-Agent": "NABU"})
         if cloudpak.status_code == 404:
-            print("#### 404 ERROR! #### - Sending out the penguins.")
-            cloudpak = requests.get(location + "64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak", headers={"User-Agent": "NABU"})
+            logging.error("#### 404 ERROR! #### - Sending out the penguins.")
+            cloudpak = requests.get("{}64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak".format(location), headers={"User-Agent": "NABU"})
         encryptedpak = cloudpak.content
         cipher = DES.new(DESKEY, DES.MODE_CBC, iv=DESIV)
         pakdata = cipher.decrypt(encryptedpak)
         pakdata = Padding.unpad(pakdata, 8)
-        print(segnum + ": " + str(len(pakdata)) + " bytes")
         self.parse_pak(pakdata)
 
 
