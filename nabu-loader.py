@@ -19,6 +19,9 @@
 #   Output messages trimmed and condensed
 #   Pak directory selectable from command line option, but defaults available for all settings
 #   Now supports loading encrypted files from Internet cloud source, such as http://cloud.nabu.ca/cycle1/
+# 12/30/2022:
+#   Now supports loading raw .nabu files from disk: use the -n option!
+#
 
 # This works with a directory of pak files, specified at command line or by default variable below
 # Will work with unmodified (but decrypted) files from both cycle 1 and 2 of the original NABU network
@@ -181,7 +184,8 @@ def escapeUploadBytes(data):
     return escapedBytes
 
 def sendBytes(data):
-    chunk_size=6
+##    chunk_size=6
+    chunk_size=64
     index=0
     delay_secs=0
     end=len(data)
@@ -204,7 +208,7 @@ def recvBytesExactLen(length=None):
         remaining = length - len(data)
 #        print("Waiting for {} more bytes".format(length - len(data)))
         print(data.hex(' '))
-        time.sleep(0.01)
+#        time.sleep(0.01)
         data = data + recvBytes(remaining)
     return data
 
@@ -241,7 +245,8 @@ global paks
 paks = {}    # Creates library variable to store loaded paks in memory
 
 MAX_READ=65535
-DEFAULT_BAUDRATE=111863
+#DEFAULT_BAUDRATE=111863
+DEFAULT_BAUDRATE=115200
 DEFAULT_SERIAL_PORT="/dev/ttyUSB0"
 DEFAULT_PAK_DIRECTORY="./paks/"
 CLOUD_LOCATION="http://cloud.nabu.ca/cycle1/"
@@ -270,10 +275,24 @@ default=DEFAULT_PAK_DIRECTORY)
 parser.add_argument("-i", "--internetlocation",
 help="Set Internet location to source pak files, if not specified, load from disk",
 default=CLOUD_LOCATION)
+# Optional Nabu packetize
+parser.add_argument("-n", "--nabufile",
+help="Packetize and send raw .nabu file",
+default=None)
 		
 args = parser.parse_args()
 
-loadpak("000001")
+if args.nabufile is not None:
+    if os.path.exists( args.paksource ) == False:
+        print("### ERROR: No such file ", args.nabufile, "   END OF LINE")
+        done
+    else:
+        print("* Loading .nabu file ", args.nabufile, " from disk")
+        pak1 = NabuPak()
+        pak1.pakify_nabu_file( args.nabufile )
+    paks["000001"] = pak1
+else:
+    loadpak("000001")
 
 # Some hard-coded things here (timeout, stopbits)
 ser = serial.Serial(port=args.ttyname, baudrate=args.baudrate, timeout=0.5, stopbits=serial.STOPBITS_TWO)
