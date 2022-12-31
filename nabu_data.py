@@ -165,10 +165,7 @@ class NabuPak:
             segment_bytes[6:7] = [1]
             segment_bytes[7:11] = [127, 255, 255, 255] # tier = 0x7fffffff
             segment_bytes[11:13] = [127, 128] # mystery byte = 0x7f80
-            if segnum == 0:
-                segment_bytes[13:14] = [161] # first segment = 0xA1
-            else:
-                segment_bytes[13:14] = [48] # last segment = 0x30    
+            segment_bytes[13:14] = [48] # last segment = 0x30    
             segment_bytes[14:15] = [segnum]
             segment_bytes[15:16] = [0]
             offset = segnum * 991
