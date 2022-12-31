@@ -62,10 +62,10 @@ class NabuPak:
 
     def get_segment(self, segment_id):
         if segment_id in self.segments:
-            logging.info("* Segment Found: {}".format(segment_id))
+            logging.debug("Segment Found: {}".format(segment_id))
             return self.segments[segment_id]
         else:
-            logging.warning("* Segment Not Found: {}".format(segment_id))
+            logging.warning("Segment Not Found: {}".format(segment_id))
             return None
 
     def get_segment_count(self):
@@ -89,7 +89,7 @@ class NabuPak:
             index += 2
             segment_end = index + segment_length
 #            print("* Index = {}.  Segment_end = {}.".format(index, segment_end))
-            logging.info("Segment ID: {} Index: {} Segment end: {} Length: {}[{}]".format(
+            logging.debug("Segment ID: {} Index: {} Segment end: {} Length: {}[{}]".format(
                             segment_id,index,segment_end,segment_length,hex(segment_length)))
             segment_bytes = pak_bytes[index:segment_end]
 ##            print("* Segment bytes: {}".format(segment_bytes.hex(' ')))
@@ -101,7 +101,7 @@ class NabuPak:
         f = open(pakfile, "rb")
         contents = bytes(f.read())
 #        print(" * Ingesting Segments from {}:".format(pakfile) + contents.hex(' '))
-        logging.info("* Reading segments from : {}   {} bytes".format(pakfile,len(contents)))
+        logging.debug("* Reading segments from : {}   {} bytes".format(pakfile,len(contents)))
         self.parse_pak(contents)
 
     def get_cloud_pak(self, location, paknum):
