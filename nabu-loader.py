@@ -30,11 +30,9 @@ import time
 import os
 import argparse
 import platform
-import logging
+from logger import logging
 
 from nabu_data import NabuSegment, NabuPak
-
-DEFAULT_LOG_LEVEL = logging.WARNING
 
 MAX_READ = 65535
 DEFAULT_BAUDRATE = 111863
@@ -280,8 +278,7 @@ def get_args(parser):
                         help="Set Internet location to source pak files, if not specified, load from disk",
                         default=CLOUD_LOCATION)
     parser.add_argument("-l", "--log",
-                        help="Choose a level of Log output [DEBUG,INFO,WARNING,ERROR,CRITICAL]. (default: {} )".format(DEFAULT_LOG_LEVEL),
-                        default=DEFAULT_LOG_LEVEL)
+                        help="Choose a level of Log output [DEBUG,INFO,WARNING,ERROR,CRITICAL].")
     return parser.parse_args()
 
 
