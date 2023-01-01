@@ -17,6 +17,8 @@ from logger import logging
 
 from nabu_data import NabuSegment, NabuPak
 
+log = logging.getLogger('')
+
 MAX_READ = 65535
 DEFAULT_BAUDRATE = 115200 #111863
 
@@ -225,9 +227,9 @@ def receiveBytes(serial_connection, length=None):
 def loadpak(filename, args, paks): # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
     if args.internetlocation:
         pak1 = NabuPak()
-        print("# Loading NABU segments into memory from {}".format(args.internetlocation))
+        logging.info("# Loading NABU segments into memory from {}".format(args.internetlocation))
         pak1.get_cloud_pak(args.internetlocation, int(filename, 16))
-        print('# Loading Complete!')
+        logging.info('# Loading Complete!')
     else:
         file = filename.upper()
         print("# Loading NABU Segments into memory from disk")
@@ -263,8 +265,8 @@ def get_args(parser):
 
 def main(args):
     if args.log_level:
-        logging.Logger.setLevel(logging.Logger,level=args.log_level)
-        logging.info("Logging using level: {}".format(logging.getLevelName(logging.Logger.getEffectiveLevel(logging.Logger))))
+        logging.getLogger().setLevel(level=args.log_level)
+        logging.info("Logging using level: {}".format(logging.getLogger().getEffectiveLevel))
 
     channelCode = '0000'
     loaded_paks = {}
@@ -278,10 +280,9 @@ def main(args):
             pak1.pakify_nabu_file( args.nabufile )
         loaded_paks["000001"] = pak1
     else:
+        logging.info("No .nabu file specified.  ")
         loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
 
-    
-    loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
     try:
         serial_connection = serial.Serial(
             port=args.ttyname,
