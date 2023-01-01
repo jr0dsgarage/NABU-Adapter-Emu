@@ -1,4 +1,20 @@
-# NABU-Loader
+# NABU Adaptor Emulator
+
+Standing on the backs of giants, I'm using this repository to learn and practice my python skills,
+and to better understand the `NABU-PC <-> NABU-ADAPTOR <-> NABU-NETWORK` connection works,
+while also trying to expand my understanding of the VSCode github workflow.
+
+## jrodsgarage changes
+
+- added logging and formatted the output, while doing a bit of work to properly structure the code, without changing functionality.
+- added code to determine OS (Linux & Windows) and use the appropriate default syntax for opening the serial connection.  
+
+*Everything below this line is inherited from the fork I forked this from*
+
+---
+
+
+## NABU-Loader
 
 A heavily modified fork of https://github.com/mdebreceni/nabu-pc-playground
 
