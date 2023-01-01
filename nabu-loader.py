@@ -225,12 +225,12 @@ def receiveBytes(serial_connection, length=None):
 def loadpak(filename, args, paks): # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
     if args.internetlocation:
         pak1 = NabuPak()
-        logging.info("# Loading NABU segments into memory from {}".format(args.internetlocation))
+        logging.info("Loading NABU segments into memory from {}".format(args.internetlocation))
         pak1.get_cloud_pak(args.internetlocation, int(filename, 16))
-        logging.info('# Loading Complete!')
+        logging.info('Loading Complete!')
     else:
         file = filename.upper()
-        print("# Loading NABU Segments into memory from disk")
+        print("Loading NABU Segments into memory from disk")
         pak1 = NabuPak()
         if not os.path.exists("{}{}.pak".format(args.paksource,file)):
             logging.error("Pak file does not exist... here, have some penguins instead.")
@@ -271,9 +271,9 @@ def main(args):
 
     if args.nabufile is not None:
         if not os.path.exists( args.paksource ):
-            print(f"### ERROR: No such file {args.nabufile}   END OF LINE")
+            logging.error(f"No such file {args.nabufile}   END OF LINE")
         else:
-            print("* Loading .nabu file ", args.nabufile, " from disk")
+            logging.info(f"Loading .nabu file ", args.nabufile, " from disk")
             pak1 = NabuPak()
             pak1.pakify_nabu_file( args.nabufile )
         loaded_paks["000001"] = pak1
