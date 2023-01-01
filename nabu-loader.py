@@ -42,7 +42,7 @@ request_handlers = {
     0x83: '[0x83] Set Status',
     0x84: '[0x84] Download Segment Request',
     0x85: '[0x85] Set Channel Code',
-    0x8f: '[0x8f] -unknoen',
+    0x8f: '[0x8f] -unknown',
 }
 
 
