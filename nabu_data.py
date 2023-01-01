@@ -226,7 +226,7 @@ class NabuSegment:
         time_bytes[12:14] = [0, 0] # segment number zero
         time_bytes[14:16] = [0, 0] # offset zero
         time_bytes[16:18] = [2, 2] # pair of deuces
-        time_bytes[18:19] = [(now.weekday()+2)%7]
+        time_bytes[18:19] = [(now.weekday()%7)+2]
         time_bytes[19:20] = [85] # preoccupied with 1985
         time_bytes[20:21] = [now.month]
         time_bytes[21:22] = [now.day]
