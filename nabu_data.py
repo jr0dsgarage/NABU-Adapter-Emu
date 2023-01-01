@@ -20,26 +20,28 @@
 # Each segment is no more than 1KB and has this structure
 #
 # pack
-#         +----------------+
-#         | header 18 bytes|
-#         +----------------+
-#         | code =<1004    |
-#         | bytes          |
-#         +----------------+
-#         | CRC  2 bytes   |
-#         +----------------+
-#
+#         +-------------------+
+#         | header [18 bytes] |
+#         +-------------------+
+#         | code     =<       |
+#         | bytes [991 bytes] |
+#         +-------------------+
+#         | CRC   [2 bytes]   |     1011 bytes total
+#         +-------------------+
+#         
 # The meaning of header bytes is as follows:
-#         bytes 0,1:     segment length (excluding the header and CRC bytes, lsb first)
+#         bytes 0,1:     segment length (including 18 byte header, excluding the 2 CRC bytes, lsb first)
 #         bytes 2,3,4:   pak id (msb firs)
 #         byte 5:        segment id (with the first id = 0)
 #         byte 6:        pak owner (the same for all PAKs; in YUNN segment owner=1)
 #         bytes 7-10:    pak tier  (the same for all PAKs; in YUNN, tier= $08 $00 $00 $02)
 #         bytes 11,12:   mystery bytes (the same for all PAKs; in YUNN, these bytes are $80 $19)
 #         byte  13:      segment type
-#         byte  14,15:   segment number (the same as byte 5)
-#         byte  16,17:   offset -- pointer to the beginning of the segment from the beginning of the pak
+#         byte  14:      segment number (the same as byte 5)
+#         byte  15:      a zero
+#         byte  16,17:   offset -- pointer to the beginning of the segment from the beginning of the original unpaketized file
 #
+# 
 
 import datetime
 import hashlib
@@ -57,8 +59,8 @@ class NabuPak:
     def __init__(self):
         self.segments = {}
 
-    def load_segment(self, segment_bytes, segment_id):
-        self.segments[segment_id] = segment_bytes
+#  #  def load_segment(self, segment_bytes, segment_id):
+#  #     self.segments[segment_id] = segment_bytes
 
     def get_segment(self, segment_id):
         if segment_id in self.segments:
@@ -121,8 +123,68 @@ class NabuPak:
         pakdata = cipher.decrypt(encryptedpak)
         pakdata = Padding.unpad(pakdata, 8)
         self.parse_pak(pakdata)
-
-
+        
+    def pakify_nabu_file(self, nabufile):
+        nabu = open(nabufile, "rb")
+        contents = bytes(nabu.read())
+        print("*** Reading Nabu file from : ", nabufile, "   " + str(len(contents)) + " bytes")
+        segnum = 0
+        nabulength = len(contents)
+        remainingnabu = nabulength
+        while remainingnabu >= 991:
+            segment_bytes = bytearray([])
+            segment_bytes[0:2] = [241, 3] # length: 1009 0x3f1, not actually used
+            segment_bytes[2:5] = [0, 0, 1]
+            segment_bytes[5:6] = [segnum]
+            segment_bytes[6:7] = [1]
+            segment_bytes[7:11] = [127, 255, 255, 255] # tier = 0x7fffffff
+            segment_bytes[11:13] = [127, 128] # mystery byte = 0x7f80
+            if segnum == 0:
+                segment_bytes[13:14] = [161] # first segment = 0xA1
+            elif remainingnabu == 991:
+                segment_bytes[13:14] = [48] # last segment = 0x30    
+            else:
+                segment_bytes[13:14] = [32] # middle segment = 0x20
+            segment_bytes[14:15] = [segnum]
+            segment_bytes[15:16] = [0]
+            offset = segnum * 991
+            offsetbyte1=(int(int(hex(offset & 0xff00),0)/256))
+            offsetbyte2=(int(hex(offset & 0x00ff),0))
+            segment_bytes[16:18] = [offsetbyte1, offsetbyte2]
+            segment_bytes[18:1009] = contents[segnum*991:(segnum+1)*991]
+            nabuseg = NabuSegment()
+            complete_segment = nabuseg.add_checksum(segment_bytes[2:1009])
+            length = len(complete_segment)
+            self.segments[segnum] = complete_segment[0:length]
+            print("Segment :", segnum, "  Offset :", offset, "  Checksum :", complete_segment[length-2:length].hex() , "  Length :", length)
+#            print(complete_segment.hex(" "))
+            segnum = segnum + 1
+            remainingnabu = remainingnabu - 991
+        if remainingnabu > 0:
+            segment_bytes = bytearray([])
+            segment_bytes[0:2] = [241, 3] # dummy length here, not actually used 
+            segment_bytes[2:5] = [0, 0, 1]
+            segment_bytes[5:6] = [segnum]
+            segment_bytes[6:7] = [1]
+            segment_bytes[7:11] = [127, 255, 255, 255] # tier = 0x7fffffff
+            segment_bytes[11:13] = [127, 128] # mystery byte = 0x7f80
+            segment_bytes[13:14] = [48] # last segment = 0x30    
+            segment_bytes[14:15] = [segnum]
+            segment_bytes[15:16] = [0]
+            offset = segnum * 991
+            offsetbyte1=(int(int(hex(offset & 0xff00),0)/256))
+            offsetbyte2=(int(hex(offset & 0x00ff),0))
+            segment_bytes[16:18] = [offsetbyte1, offsetbyte2]
+            segment_bytes[18:remainingnabu+18] = contents[segnum*991:((segnum+1)*991)+remainingnabu]
+            nabuseg = NabuSegment()
+            complete_segment = nabuseg.add_checksum(segment_bytes[2:remainingnabu+18])
+            length = len(complete_segment)
+            self.segments[segnum] = complete_segment[0:length]
+            print("Segment :", segnum, "  Offset :", offset, "  Checksum :", complete_segment[length-2:length].hex() , "  Length :", length)
+            segnum = segnum + 1
+            remainingnabu = 0
+        print("Built pak 000001 from : ", nabufile, "       ", segnum, "segments")
+     
 class NabuSegment:
     def __init__(self):
         pak_pak_id = None
@@ -154,18 +216,18 @@ class NabuSegment:
 
     def get_time_segment(self):
         now = datetime.datetime.now()
-        time_bytes = bytearray([])
-        time_bytes[0:3] = [127, 255, 255]  # segment ID = 0x7fffff
-        time_bytes[3:4] = [0]  # packet number = 0x00
-        time_bytes[4:5] = [1]  # owner = 0x01
-        time_bytes[5:9] = [127, 255, 255, 255]  # tier = 0x7fffffff
-        time_bytes[9:11] = [127, 128]  # mystery byte = 0x7f80
-        time_bytes[11:12] = [32]  # pack type = 0x20 (16 for 0x10)
-        time_bytes[12:14] = [0, 0]  # packet number zero
-        time_bytes[14:16] = [0, 0]  # offset zero
-        time_bytes[16:18] = [2, 2]  # , 84, 1, 1, 0, 40, 0]
-        time_bytes[18:19] = [(now.weekday()+2) % 7]
-        time_bytes[19:20] = [83]  # 1983
+        time_bytes=bytearray([])
+        time_bytes[0:3] = [127, 255, 255] # Pak ID = 0x7fffff
+        time_bytes[3:4] = [0] # segment number = 0x00
+        time_bytes[4:5] = [1] # owner = 0x01
+        time_bytes[5:9] = [127, 255, 255, 255] # tier = 0x7fffffff
+        time_bytes[9:11] = [127, 128] # mystery byte = 0x7f80
+        time_bytes[11:12] = [32] # pack type = 0x20 (16 for 0x10)
+        time_bytes[12:14] = [0, 0] # segment number zero
+        time_bytes[14:16] = [0, 0] # offset zero
+        time_bytes[16:18] = [2, 2] # pair of deuces
+        time_bytes[18:19] = [(now.weekday()+2)%7]
+        time_bytes[19:20] = [85] # preoccupied with 1985
         time_bytes[20:21] = [now.month]
         time_bytes[21:22] = [now.day]
         time_bytes[22:23] = [now.hour]
