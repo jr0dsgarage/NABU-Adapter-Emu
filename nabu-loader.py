@@ -17,8 +17,6 @@ from logger import logging
 
 from nabu_data import NabuSegment, NabuPak
 
-log = logging.getLogger('')
-
 MAX_READ = 65535
 DEFAULT_BAUDRATE = 115200 #111863
 
