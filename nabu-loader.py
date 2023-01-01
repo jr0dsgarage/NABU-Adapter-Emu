@@ -252,11 +252,12 @@ def get_args(parser):
     parser.add_argument("-i", "--internetlocation",
                         help="Set Internet location to source pak files, if not specified, load from disk",
                         default=CLOUD_LOCATION)
+    parser.add_argument("-n", "--nabufile",
+                        help="Packetize and send raw .nabu file",
+                        default=None)
     parser.add_argument("-l", "--log_level",
                         help="Choose a level of Log output [DEBUG,INFO,WARNING,ERROR,CRITICAL].")
-                parser.add_argument("-n", "--nabufile",
-help="Packetize and send raw .nabu file",
-default=None)
+    
     return parser.parse_args()
 
 
@@ -265,19 +266,21 @@ def main(args):
         logging.Logger.setLevel(logging.Logger,level=args.log_level)
         logging.info("Logging using level: {}".format(logging.getLevelName(logging.Logger.getEffectiveLevel(logging.Logger))))
 
-"""if args.nabufile is not None:
-    if os.path.exists( args.paksource ) == False:
-        print("### ERROR: No such file ", args.nabufile, "   END OF LINE")
-        done
-    else:
-        print("* Loading .nabu file ", args.nabufile, " from disk")
-        pak1 = NabuPak()
-        pak1.pakify_nabu_file( args.nabufile )
-    paks["000001"] = pak1
-else:
-    loadpak("000001")"""
     channelCode = '0000'
     loaded_paks = {}
+
+    if args.nabufile is not None:
+        if not os.path.exists( args.paksource ):
+            print(f"### ERROR: No such file {args.nabufile}   END OF LINE")
+        else:
+            print("* Loading .nabu file ", args.nabufile, " from disk")
+            pak1 = NabuPak()
+            pak1.pakify_nabu_file( args.nabufile )
+        loaded_paks["000001"] = pak1
+    else:
+        loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
+
+    
     loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
     try:
         serial_connection = serial.Serial(
