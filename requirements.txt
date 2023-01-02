@@ -4,5 +4,6 @@ pyserial
 pycryptodome
 requests
 datetime
-#hashlib
-#logging
+asyncio
+hashlib
+logging
