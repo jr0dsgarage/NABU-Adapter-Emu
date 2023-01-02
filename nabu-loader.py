@@ -287,4 +287,4 @@ def main(args):
     
 
 if __name__ == "__main__":
-    main(get_args(argparse.ArgumentParser()))
+    main(get_args(argparse.ArgumentParser(description='A Python based Nabu Adaptor Emulator for use with the NABU-PC and MAME')))
