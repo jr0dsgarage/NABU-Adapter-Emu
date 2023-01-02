@@ -261,7 +261,7 @@ def get_args(parser):
 def main(args):
     if args.log_level:
         logging.getLogger().setLevel(level=args.log_level)
-        logging.info(f'Logging using level: {logging.getLogger().getEffectiveLevel}')
+        logging.info(f'Logging using level: {logging.getLevelName(logging.getLogger().getEffectiveLevel())}')
 
     channelCode = '0000'
     loaded_paks = {}
@@ -274,7 +274,7 @@ def main(args):
             loadpak(args.nabufile, args, loaded_paks)
             pak1 = NabuPak()
             pak1.pakify_nabu_file( args.nabufile )
-        loaded_paks["000001"] = pak1
+            loaded_paks["000001"] = pak1
     else:
         logging.info(f'No .nabu file specified.')
         loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
