@@ -1,1 +1,8 @@
+# pip install -r requirements.txt
+argparse
+pyserial
 pycryptodome
+requests
+datetime
+#hashlib
+#logging
