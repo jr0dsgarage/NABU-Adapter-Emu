@@ -26,9 +26,9 @@ CLOUD_LOCATION = "http://cloud.nabu.ca/cycle1/"
 # CLOUD_LOCATION=None
 
 match platform.system():
-    case "Linux":
+    case 'Linux':
         DEFAULT_SERIAL_PORT = "/dev/ttyUSB0"
-    case "Windows":
+    case 'Windows':
         DEFAULT_SERIAL_PORT = "COM3"
 
 request_handlers = {
@@ -42,7 +42,7 @@ request_handlers = {
     0x83: '[0x83] Set Status',
     0x84: '[0x84] Download Segment Request',
     0x85: '[0x85] Set Channel Code',
-    0x8f: '[0x8f] -unknoen',
+    0x8f: '[0x8f] -mystery message',
 }
 
 
@@ -56,14 +56,13 @@ def send_time(serial_connection):
                         0x00, 0x00,0x02, 0x02, 0x02, 0x54, 0x01, 0x01, 0x00, 0x00, 0x00, 0xc6, 0x3a]))"""
     currenttime = NabuSegment()
     sendBytes(serial_connection, currenttime.get_time_segment())
-    logging.debug('Sent Time as {}'.format(currenttime.get_time_segment().hex(' ')))
-
+    logging.debug(f'Sent Time as {currenttime.get_time_segment().hex(" ")}')
 # TODO:  We can probably get rid of handle_0xf0_request, handle_0x0f_request and handle_0x03_request
 # TODO:  as these bytes may have been from RS-422 buffer overruns / other errors
 
 
 def handle_request(serial_connection, args, data, paks, channelCode):
-    logging.info("Handling Request: {}".format(request_handlers[data[0]]))
+    logging.info(f'Handling Request: {request_handlers[data[0]]}')
     match data[0]:
         case 0xf0, 0x0f, 0x03:
             sendBytes(serial_connection, bytes([0xe4]))
@@ -78,10 +77,10 @@ def handle_request(serial_connection, args, data, paks, channelCode):
             send_ack(serial_connection)
             response = receiveBytes(serial_connection)
             if channelCode is None:  # Ask NABUPC to set channel code
-                logging.warning("Channel Code is not set yet.")
+                logging.warning(f'Channel Code is not set yet.')
                 sendBytes(serial_connection, bytes([0x9f, 0x10, 0xe1]))
             else:  # Report that channel code is already set
-                logging.info("Channel code is set to {}".format(channelCode))
+                logging.info(f'Channel code is set to {channelCode}')
                 sendBytes(serial_connection, bytes([0x1f, 0x10, 0xe1]))
         case 0x83:  # Set Status
             sendBytes(serial_connection, bytes([0x10, 0x06, 0xe4]))
@@ -94,17 +93,17 @@ def handle_request(serial_connection, args, data, paks, channelCode):
             pakNumber = bytes(
                 reversed(recvBytesExactLen(serial_connection, 3)))
             pakId = str(pakNumber.hex())
-            logging.debug("Requested Pak ID: {} Requested Segment Number: {}".format(pakId, segmentNumber))
+            logging.debug(f'Requested Pak ID: {pakId} Requested Segment Number: {segmentNumber}')
 
-            if pakId == "7fffff": # time packet id should be defined as constant
+            if pakId == "7fffff": # time pak id? (should be defined as constant)
                 sendBytes(serial_connection, bytes([0xe4, 0x91]))
                 pakId == ""
             else:
                 sendBytes(serial_connection, bytes([0xe4, 0x91]))
                 response = receiveBytes(serial_connection, 2)
-                logging.debug("Response from NPC: {}".format(response.hex(" ")))
+                logging.debug(f'Response from NPC: {response.hex(" ")}')
                 if pakId not in paks:  # Get Segment from internal segment store
-                    logging.warning("Pak not already in memory... loading...")
+                    logging.warning(f'Pak not already in memory... loading...')
                     loadpak(pakId, args, paks)
                     sendBytes(serial_connection, bytes([0x91]))
                 pak = paks[pakId]
@@ -136,14 +135,12 @@ def handle_request(serial_connection, args, data, paks, channelCode):
                 checkedpack = NabuSegment()
                 sd = bytearray(segment_data)
                 chk = checkedpack.add_checksum(sd[0:seglength-2])
+                debug_info = f'Pak: [{segment.pak_id.hex()}]  Segment: [{segment.segmentnum.hex()}]  Checksum: [{segment.segment_crc.hex()}]'
                 if chk[-2:] == segment.segment_crc:
-                    logging.debug("Pak: [{}] Segment: [{}]  Checksum: [{}]  [Checksum Valid!]".format(
-                        segment.pak_id.hex(), segment.segmentnum.hex(), segment.segment_crc.hex()))
+                    logging.debug(f'{debug_info}  [Checksum Valid!]')
                 else:
-                    logging.debug("Pak: [{}]  Segment: [{}]  Checksum: [{}]".format(
-                        segment.pak_id.hex(), segment.segmentnum.hex(), segment.segment_crc.hex()))
-                    logging.error("##### Corrupt PAK file! #####  Checksum: [{}] Should be: [{}] fixing...".format(
-                        segment.segment_crc.hex(), chk[-2:].hex()))
+                    logging.debug(f'{debug_info}  [Checksum Fail!!]')
+                    logging.error(f"Fixing Corrupt Pak File!  Checksum: [{segment.segment_crc.hex()}] Should be: [{chk[-2:].hex()}]")
                     segment_data = chk
 
                 # escape pack data (0x10 bytes should be escaped maybe?)
@@ -155,19 +152,19 @@ def handle_request(serial_connection, args, data, paks, channelCode):
             data = recvBytesExactLen(2)
             while len(data) < 2:
                 remaining = 2 - len(data)
-                logging.info("# Waiting for channel code...")
-                logging.debug(data.hex(' '))
+                logging.info(f'Waiting for channel code...')
+                logging.debug(data.hex(" "))
                 data = data + receiveBytes(remaining)
 
-            logging.debug("Received Channel code bytes: {}".format(data.hex()))
+            logging.debug(f'Received Channel code bytes: {data.hex()}')
             channelCode = bytes(reversed(data)).hex()
-            logging.debug("Channel code: {}".format(channelCode))
+            logging.debug(f'Channel code: {channelCode}')
             sendBytes(serial_connection, bytes([0xe4]))
         case 0x8f:
             data = receiveBytes(serial_connection)
             sendBytes(serial_connection, bytes([0xe4]))
         case _:  # default case
-            logging.warning("[{}] - Unimplemented request".format(data.hex(' ')))
+            logging.warning(f'[{data.hex(" ")}] - Unimplemented request')
 
 
 def escapeUploadBytes(data):
@@ -190,7 +187,7 @@ def sendBytes(serial_connection, data):
 
     while index + chunk_size < end:
         serial_connection.write(data[index:index+chunk_size])
-        logging.debug("NA-->NPC:[{}]".format(data[index:index+chunk_size].hex(' ')))
+        logging.debug(f'NA-->NPC:[{data[index:index+chunk_size].hex(" ")}]')
         index += chunk_size
         #time.sleep(delay_secs)
 
@@ -218,23 +215,23 @@ def receiveBytes(serial_connection, length=None):
     else:
         received_data = serial_connection.read(length)
     if (len(received_data) > 0):
-        logging.debug("NPC-->NA:[{}]".format(received_data.hex(' ')))
+        logging.debug(f'NPC-->NA:[{received_data.hex(" ")}]')
     return received_data
 
 
 def loadpak(filename, args, paks): # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
     if args.internetlocation:
         pak1 = NabuPak()
-        print("# Loading NABU segments into memory from {}".format(args.internetlocation))
+        logging.info(f'Loading NABU segments into memory from {args.internetlocation}')
         pak1.get_cloud_pak(args.internetlocation, int(filename, 16))
-        print('# Loading Complete!')
+        logging.info(f'Loading Complete!')
     else:
+        print(f"Loading NABU Segments into memory from disk")
         file = filename.upper()
-        print("# Loading NABU Segments into memory from disk")
         pak1 = NabuPak()
-        if not os.path.exists("{}{}.pak".format(args.paksource,file)):
-            logging.error("Pak file does not exist... here, have some penguins instead.")
-        pak1.ingest_from_file("{}{}.pak".format(args.paksource,file))
+        if not os.path.exists(f'{args.paksource}{file}.pak'):
+            logging.error(f'Pak file does not exist... here, have some penguins instead.')
+        pak1.ingest_from_file(f'{args.paksource}{file}.pak')
     paks[filename] = pak1
 
 
@@ -263,25 +260,25 @@ def get_args(parser):
 
 def main(args):
     if args.log_level:
-        logging.Logger.setLevel(logging.Logger,level=args.log_level)
-        logging.info("Logging using level: {}".format(logging.getLevelName(logging.Logger.getEffectiveLevel(logging.Logger))))
+        logging.getLogger().setLevel(level=args.log_level)
+        logging.info(f'Logging using level: {logging.getLogger().getEffectiveLevel}')
 
     channelCode = '0000'
     loaded_paks = {}
 
-    if args.nabufile is not None:
+    if args.nabufile:
         if not os.path.exists( args.paksource ):
-            print(f"### ERROR: No such file {args.nabufile}   END OF LINE")
+            logging.error(f'No such file {args.nabufile}   END OF LINE')
         else:
-            print("* Loading .nabu file ", args.nabufile, " from disk")
+            logging.info(f'Loading .nabu file {args.nabufile} from disk')
+            loadpak(args.nabufile, args, loaded_paks)
             pak1 = NabuPak()
             pak1.pakify_nabu_file( args.nabufile )
         loaded_paks["000001"] = pak1
     else:
+        logging.info(f'No .nabu file specified.')
         loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
 
-    
-    loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
     try:
         serial_connection = serial.Serial(
             port=args.ttyname,
@@ -297,5 +294,4 @@ def main(args):
             handle_request(serial_connection, args, data, loaded_paks, channelCode)
 
 if __name__ == "__main__":
-    args = get_args(argparse.ArgumentParser())
-    main(args)
+    main(get_args(argparse.ArgumentParser()))

@@ -64,10 +64,10 @@ class NabuPak:
 
     def get_segment(self, segment_id):
         if segment_id in self.segments:
-            logging.debug("Segment Found: {}".format(segment_id))
+            logging.debug(f'Segment Found: {segment_id}')
             return self.segments[segment_id]
         else:
-            logging.warning("Segment Not Found: {}".format(segment_id))
+            logging.warning('Segment Not Found: {segment_id}')
             return None
 
     def get_segment_count(self):
@@ -81,18 +81,13 @@ class NabuPak:
             endflag = endflag - 1
             junkbytes = junkbytes + 1
         if junkbytes != 0:
-            logging.warning(" Found {} extra 1a's at the end of pak file. Trimming...".format(junkbytes))
+            logging.warning(f'Trimming {junkbytes} extra [1a]s at the end of pak file')
         while index < endflag + 1:
             segment_length = pak_bytes[index] + pak_bytes[index + 1] * 256
             segment_id = pak_bytes[index + 5]
-
-#            print("* Segment length is {}".format(segment_length))
-#            print("* Segment ID is {}".format(segment_id))
             index += 2
             segment_end = index + segment_length
-#            print("* Index = {}.  Segment_end = {}.".format(index, segment_end))
-            logging.debug("Segment ID: {} Index: {} Segment end: {} Length: {}[{}]".format(
-                            segment_id,index,segment_end,segment_length,hex(segment_length)))
+            logging.debug(f'Segment ID: {segment_id} Index: {index} Segment end: {segment_end} Length: {segment_length}[{hex(segment_length)}]')
             segment_bytes = pak_bytes[index:segment_end]
 ##            print("* Segment bytes: {}".format(segment_bytes.hex(' ')))
 
@@ -103,7 +98,7 @@ class NabuPak:
         f = open(pakfile, "rb")
         contents = bytes(f.read())
 #        print(" * Ingesting Segments from {}:".format(pakfile) + contents.hex(' '))
-        logging.debug("* Reading segments from : {}   {} bytes".format(pakfile,len(contents)))
+        logging.debug(f'Reading segments from : {pakfile}   {len(contents)} bytes')
         self.parse_pak(contents)
 
     def get_cloud_pak(self, location, paknum):
@@ -116,8 +111,8 @@ class NabuPak:
         #print(npakname)
         cloudpak = requests.get(location + npakname, headers={"User-Agent": "NABU"})
         if cloudpak.status_code == 404:
-            logging.error("#### 404 ERROR! #### - Sending out the penguins.")
-            cloudpak = requests.get("{}64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak".format(location), headers={"User-Agent": "NABU"})
+            logging.error("404 ERROR!")
+            cloudpak = requests.get("{location}64-A0-E6-52-56-04-39-8A-D9-3A-3E-77-EF-7E-25-BE.npak", headers={"User-Agent": "NABU"})
         encryptedpak = cloudpak.content
         cipher = DES.new(DESKEY, DES.MODE_CBC, iv=DESIV)
         pakdata = cipher.decrypt(encryptedpak)
@@ -127,7 +122,7 @@ class NabuPak:
     def pakify_nabu_file(self, nabufile):
         nabu = open(nabufile, "rb")
         contents = bytes(nabu.read())
-        print("*** Reading Nabu file from : ", nabufile, "   " + str(len(contents)) + " bytes")
+        logging.info(f'Reading Nabu file: {nabufile} [{str(len(contents))} bytes]')
         segnum = 0
         nabulength = len(contents)
         remainingnabu = nabulength
@@ -156,9 +151,9 @@ class NabuPak:
             complete_segment = nabuseg.add_checksum(segment_bytes[2:1009])
             length = len(complete_segment)
             self.segments[segnum] = complete_segment[0:length]
-            print("Segment :", segnum, "  Offset :", offset, "  Checksum :", complete_segment[length-2:length].hex() , "  Length :", length)
+            logging.debug(f'Segment :{segnum}  Offset :{offset}  Checksum :{complete_segment[length-2:length].hex()}  Length :{length}')
 #            print(complete_segment.hex(" "))
-            segnum = segnum + 1
+            segnum += 1
             remainingnabu = remainingnabu - 991
         if remainingnabu > 0:
             segment_bytes = bytearray([])
@@ -180,10 +175,10 @@ class NabuPak:
             complete_segment = nabuseg.add_checksum(segment_bytes[2:remainingnabu+18])
             length = len(complete_segment)
             self.segments[segnum] = complete_segment[0:length]
-            print("Segment :", segnum, "  Offset :", offset, "  Checksum :", complete_segment[length-2:length].hex() , "  Length :", length)
+            logging.debug(f'Segment :{segnum}  Offset :{offset}  Checksum :{complete_segment[length-2:length].hex()}  Length :{length}')
             segnum = segnum + 1
             remainingnabu = 0
-        print("Built pak 000001 from : ", nabufile, "       ", segnum, "segments")
+        logging.info(f'Built pak 000001 from : {nabufile}       {segnum} segments')
      
 class NabuSegment:
     def __init__(self):
