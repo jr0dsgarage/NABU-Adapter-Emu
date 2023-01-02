@@ -2,11 +2,8 @@
 """
 # Original code: NABU Adaptor Emulator - Copyright Mike Debreceni - 2022
 #       https://github.com/mdebreceni/nabu-pc-playground/
-#   Source of bulk of code to load, parse and send segment data to the NABU and handle requests
- This works with a directory of pak files, specified at command line or by default variable below
- Will work with unmodified (but decrypted) files from both cycle 1 and 2 of the original NABU network
- Filename 000001.pak is menu and is loaded to begin, the rest are uppercase hex filenames with .pak extension
- Can also be used with Internet cloud source of encrypted files, set location with switch or variable
+
+
 """
 import serial
 import time
@@ -220,18 +217,26 @@ def receiveBytes(serial_connection, length=None):
 
 
 def loadpak(filename, args, paks): # Loads pak from file, assumes file names are all upper case with a lower case .pak extension
-    if args.internetlocation:
-        pak1 = NabuPak()
+    pak1 = NabuPak()
+    if args.nabufile:
+        if not os.path.exists(args.nabufile):
+            logging.error(f'No such file {args.nabufile}')
+        else:
+            logging.info(f'Loading .nabu file {args.nabufile} from disk')
+            
+            pak1.pakify_nabu_file( args.nabufile )
+    elif args.internetlocation:
         logging.info(f'Loading NABU segments into memory from {args.internetlocation}')
         pak1.get_cloud_pak(args.internetlocation, int(filename, 16))
         logging.info(f'Loading Complete!')
-    else:
+    elif args.paksource:
         print(f"Loading NABU Segments into memory from disk")
         file = filename.upper()
-        pak1 = NabuPak()
         if not os.path.exists(f'{args.paksource}{file}.pak'):
             logging.error(f'Pak file does not exist... here, have some penguins instead.')
         pak1.ingest_from_file(f'{args.paksource}{file}.pak')
+    else:
+        logging.warning('No PAK source definded')
     paks[filename] = pak1
 
 
@@ -261,23 +266,11 @@ def get_args(parser):
 def main(args):
     if args.log_level:
         logging.getLogger().setLevel(level=args.log_level)
-        logging.info(f'Logging using level: {logging.getLogger().getEffectiveLevel}')
+        logging.info(f'Logging using level: {logging.getLevelName(logging.getLogger().getEffectiveLevel())}')
 
     channelCode = '0000'
     loaded_paks = {}
-
-    if args.nabufile:
-        if not os.path.exists( args.paksource ):
-            logging.error(f'No such file {args.nabufile}   END OF LINE')
-        else:
-            logging.info(f'Loading .nabu file {args.nabufile} from disk')
-            loadpak(args.nabufile, args, loaded_paks)
-            pak1 = NabuPak()
-            pak1.pakify_nabu_file( args.nabufile )
-        loaded_paks["000001"] = pak1
-    else:
-        logging.info(f'No .nabu file specified.')
-        loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
+    loadpak(DEFAULT_PAK_NAME, args, loaded_paks)
 
     try:
         serial_connection = serial.Serial(
@@ -285,13 +278,13 @@ def main(args):
             baudrate=args.baudrate,
             timeout=0.5,
             stopbits=serial.STOPBITS_TWO)
+        while True:
+            data = receiveBytes(serial_connection)
+            if data:
+                handle_request(serial_connection, args, data, loaded_paks, channelCode)
     except serial.SerialException as err:
         logging.error(err)
-
-    while True:
-        data = receiveBytes(serial_connection)
-        if data:
-            handle_request(serial_connection, args, data, loaded_paks, channelCode)
+    
 
 if __name__ == "__main__":
-    main(get_args(argparse.ArgumentParser()))
+    main(get_args(argparse.ArgumentParser(description='A Python based Nabu Adaptor Emulator for use with the NABU-PC and MAME')))
