@@ -2,4 +2,7 @@
 argparse
 pyserial
 pycryptodome
-logging
+requests
+datetime
+#hashlib
+#logging
