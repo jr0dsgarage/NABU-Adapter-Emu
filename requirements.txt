@@ -1,9 +1,10 @@
 # pip install -r requirements.txt
 argparse
+asyncio
 pyserial
+pyserial-asyncio
 pycryptodome
 requests
 datetime
-asyncio
 hashlib
 logging
