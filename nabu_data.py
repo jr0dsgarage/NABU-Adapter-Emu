@@ -47,7 +47,7 @@ import datetime
 import hashlib
 import requests
 
-from logger import logging
+from nabu_logger import logging
 
 from io import BytesIO
 
