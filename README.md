@@ -1,4 +1,4 @@
-# NABU Adaptor Emulator
+# NABU Adaptor Emulator ![GitHub](https://img.shields.io/github/license/jr0dsgarage/Nabu-Adapter-Emu)
 
 Standing on the backs of giants, I'm using this repository to learn and practice my python skills,
 and to better understand the `NABU-PC <-> NABU-ADAPTOR <-> NABU-NETWORK` connection works,
